@@ -4,29 +4,37 @@
 # sharp: Stability-enHanced Approaches using Resampling Procedures
 
 <!-- badges: start -->
+
+[![CRAN
+status](https://www.r-pkg.org/badges/version/sharp)](https://CRAN.R-project.org/package=sharp)
+[![CRAN RStudio mirror
+downloads](https://cranlogs.r-pkg.org/badges/grand-total/sharp?color=blue)](https://r-pkg.org/pkg/sharp)
+![GitHub last
+commit](https://img.shields.io/github/last-commit/barbarabodinier/sharp?logo=GitHub&style=flat-square)
 <!-- badges: end -->
 
 ## Description
 
-Implementation of stability selection for graphical modelling and
-variable selection in regression and dimensionality reduction. These
-models rely on resampling approaches to estimate selection
-probabilities. Calibration of the hyper-parameters is done via
-maximisation of a stability score measuring the likelihood of
-informative (non-uniform) selection procedure. This package also
-includes tools to simulate multivariate Normal data with different
-(partial) correlation structures.
+> Implementation of stability selection for graphical modelling and
+> variable selection in regression and dimensionality reduction. These
+> models rely on resampling approaches to estimate selection
+> probabilities. Calibration of the hyper-parameters is done via
+> maximisation of a stability score measuring the likelihood of
+> informative (non-uniform) selection procedure. This package also
+> includes tools to simulate multivariate Normal data with different
+> (partial) correlation structures.
 
 ## Installation
 
-<!-- You can install the released version of sharp from [CRAN](https://CRAN.R-project.org) with: -->
-<!-- ``` r -->
-<!-- install.packages("sharp") # devtools::install_github("barbarabodinier/sharp") -->
-<!-- ``` -->
+The released version of the package can be installed from
+[CRAN](https://CRAN.R-project.org) with:
 
-The development version can be downloaded from
-[GitHub](https://github.com/) and installed using the following command
-from a working directory containing the folder:
+``` r
+install.packages("sharp")
+```
+
+The development version can be installed from
+[GitHub](https://github.com/):
 
 ``` r
 devtools::install_github("barbarabodinier/sharp")
@@ -36,12 +44,14 @@ devtools::install_github("barbarabodinier/sharp")
 
 ### Data simulation
 
-We simulate data with *p* = 50 predictors and one outcome obtained from
-a linear combination of a subset of the predictors and a normally
-distributed error term:
+We simulate data with
+![p = 50](https://latex.codecogs.com/png.image?%5Cdpi%7B110%7D&space;%5Cbg_white&space;p%20%3D%2050 "p = 50")
+predictors and one outcome obtained from a linear combination of a
+subset of the predictors and a normally distributed error term:
 
 ``` r
 library(sharp)
+#> Loading required package: fake
 
 # Data simulation
 set.seed(1)
@@ -98,13 +108,13 @@ using:
 ``` r
 # First few penalty parameters
 head(stab$Lambda)
-#>        [,1]
-#> s0 1.420237
-#> s1 1.307513
-#> s2 1.203736
-#> s3 1.108196
-#> s4 1.020239
-#> s5 0.939263
+#>         [,1]
+#> s0 1.3748144
+#> s1 1.2645070
+#> s2 1.1630501
+#> s3 1.0697335
+#> s4 0.9839041
+#> s5 0.9049612
 
 # Grid of thresholds in selection proportion
 stab$params$pi_list
@@ -142,9 +152,9 @@ quickly obtained with:
 
 ``` r
 summary(stab)
-#> Calibrated parameters: lambda = 0.348 and pi = 0.900
+#> Calibrated parameters: lambda = 0.305 and pi = 0.900
 #> 
-#> Maximum stability score: 694.140
+#> Maximum stability score: 736.982
 #> 
 #> Number of selected variable(s): 4
 ```
@@ -161,9 +171,9 @@ SelectedVariables(stab)
 #> var14 var15 var16 var17 var18 var19 var20 var21 var22 var23 var24 var25 var26 
 #>     0     0     0     0     0     0     1     0     0     0     0     0     1 
 #> var27 var28 var29 var30 var31 var32 var33 var34 var35 var36 var37 var38 var39 
-#>     0     0     0     0     0     0     0     1     0     0     0     0     0 
+#>     0     0     1     0     0     0     0     0     0     0     0     0     0 
 #> var40 var41 var42 var43 var44 var45 var46 var47 var48 var49 var50 
-#>     0     0     1     0     0     0     0     0     0     0     0
+#>     0     0     0     0     0     0     0     0     0     1     0
 ```
 
 Stably selected variables are the ones with selection proportions above
@@ -180,13 +190,13 @@ Selection proportion values can be extracted using:
 ``` r
 SelectionProportions(stab)
 #>  var1  var2  var3  var4  var5  var6  var7  var8  var9 var10 var11 var12 var13 
-#>  0.00  0.02  0.00  0.00  0.35  0.00  0.00  0.05  0.01  0.01  0.00  0.02  0.00 
+#>  0.00  0.00  0.00  0.00  0.43  0.00  0.01  0.00  0.00  0.02  0.00  0.00  0.00 
 #> var14 var15 var16 var17 var18 var19 var20 var21 var22 var23 var24 var25 var26 
-#>  0.00  0.00  0.00  0.00  0.00  0.06  1.00  0.00  0.00  0.00  0.00  0.00  1.00 
+#>  0.00  0.03  0.00  0.01  0.00  0.00  0.98  0.00  0.00  0.01  0.00  0.00  1.00 
 #> var27 var28 var29 var30 var31 var32 var33 var34 var35 var36 var37 var38 var39 
-#>  0.18  0.00  0.51  0.01  0.00  0.00  0.00  0.97  0.00  0.00  0.03  0.01  0.00 
+#>  0.00  0.00  0.90  0.00  0.00  0.00  0.00  0.33  0.07  0.01  0.00  0.00  0.00 
 #> var40 var41 var42 var43 var44 var45 var46 var47 var48 var49 var50 
-#>  0.00  0.01  0.90  0.01  0.00  0.00  0.01  0.00  0.00  0.73  0.04
+#>  0.00  0.00  0.33  0.01  0.00  0.00  0.00  0.00  0.00  0.99  0.00
 ```
 
 ## Graphical modelling
@@ -195,9 +205,10 @@ SelectionProportions(stab)
 
 In Gaussian Graphical Modelling, the conditional independence structure
 between nodes is encoded in nonzero entries of the partial correlation
-matrix. We simulate data with *p* = 10 nodes that are connected in a
-scale-free network, where few nodes have a lot of edges and most nodes
-have a small number of edges.
+matrix. We simulate data with
+![p = 10](https://latex.codecogs.com/png.image?%5Cdpi%7B110%7D&space;%5Cbg_white&space;p%20%3D%2010 "p = 10")
+nodes that are connected in a scale-free network, where few nodes have a
+lot of edges and most nodes have a small number of edges.
 
 ``` r
 # Data simulation
@@ -225,6 +236,8 @@ simul$theta
 #> var8     0    0    0    1    0    0    0    0    0     1
 #> var9     1    0    1    0    0    0    0    0    0     0
 #> var10    0    0    1    0    0    1    0    1    0     0
+#> attr(,"class")
+#> [1] "matrix"           "adjacency_matrix"
 ```
 
 ### Stability selection
@@ -266,11 +279,11 @@ viewed using:
 
 ``` r
 summary(stab)
-#> Calibrated parameters: lambda = 0.251 and pi = 0.900
+#> Calibrated parameters: lambda = 0.331 and pi = 0.900
 #> 
-#> Maximum stability score: 1102.130
+#> Maximum stability score: 1141.949
 #> 
-#> Number of selected edge(s): 9
+#> Number of selected edge(s): 10
 ```
 
 ### Outputs
@@ -295,9 +308,9 @@ Adjacency(stab)
 #> var3     0    0    0    0    0    0    0    0    1     1
 #> var4     0    1    0    0    1    0    1    1    0     0
 #> var5     0    0    0    1    0    0    0    0    0     0
-#> var6     0    0    0    0    0    0    0    0    0     1
+#> var6     0    0    0    0    0    0    0    1    0     1
 #> var7     0    0    0    1    0    0    0    0    0     0
-#> var8     0    0    0    1    0    0    0    0    0     1
+#> var8     0    0    0    1    0    1    0    0    0     1
 #> var9     1    0    1    0    0    0    0    0    0     0
 #> var10    0    0    1    0    0    1    0    1    0     0
 ```
@@ -305,7 +318,7 @@ Adjacency(stab)
 And converted to an igraph object using:
 
 ``` r
-mygraph=Graph(Adjacency(stab))
+mygraph <- Graph(Adjacency(stab))
 set.seed(1)
 plot(mygraph)
 ```
@@ -316,8 +329,11 @@ plot(mygraph)
 
 ### Data simulation
 
-We simulate data with *p* = 12 variables related to *N* = 3 latent
-variables:
+We simulate data with
+![p = 12](https://latex.codecogs.com/png.image?%5Cdpi%7B110%7D&space;%5Cbg_white&space;p%20%3D%2012 "p = 12")
+variables related to
+![N = 3](https://latex.codecogs.com/png.image?%5Cdpi%7B110%7D&space;%5Cbg_white&space;N%20%3D%203 "N = 3")
+latent variables:
 
 ``` r
 # Data simulation
@@ -335,6 +351,7 @@ plot(simul)
 <img src="man/figures/README-unnamed-chunk-21-1.png" width="60%" style="display: block; margin: auto;" />
 
 ``` r
+
 # Relationships between variables and latent variables
 simul$theta
 #>       comp1 comp2 comp3 comp4 comp5 comp6 comp7 comp8 comp9 comp10 comp11
@@ -404,9 +421,9 @@ The PC-specific calibrated parameters are reported in:
 ``` r
 stab$summary
 #>   comp nx  pix        S
-#> 1    1  5 0.90 454.4235
-#> 2    2  6 0.88 242.0888
-#> 3    3  3 0.84 272.4526
+#> 1    1  5 0.90 427.8050
+#> 2    2  6 0.88 311.2570
+#> 3    3  3 0.73 161.7024
 ```
 
 ### Outputs
@@ -428,7 +445,7 @@ SelectedVariables(stab)
 #> var9      0     1     0
 #> var10     0     1     0
 #> var11     0     1     0
-#> var12     0     0     0
+#> var12     0     1     0
 ```
 
 This can be visualised in a network:
@@ -446,16 +463,16 @@ obtained from:
 ``` r
 SelectionProportions(stab)
 #>       comp1 comp2 comp3
-#> var1   0.08  0.76  0.84
-#> var2   0.05  0.68  0.86
-#> var3   0.00  0.42  0.87
-#> var4   0.91  0.09  0.01
-#> var5   0.91  0.09  0.00
-#> var6   0.92  0.10  0.01
-#> var7   0.91  0.11  0.00
-#> var8   0.93  0.21  0.00
-#> var9   0.08  0.91  0.07
-#> var10  0.08  0.88  0.06
-#> var11  0.07  0.90  0.13
-#> var12  0.06  0.85  0.15
+#> var1   0.00  0.73  0.75
+#> var2   0.00  0.38  0.77
+#> var3   0.00  0.69  0.73
+#> var4   0.94  0.09  0.03
+#> var5   1.00  0.06  0.00
+#> var6   0.95  0.08  0.00
+#> var7   0.97  0.12  0.00
+#> var8   1.00  0.02  0.00
+#> var9   0.14  0.98  0.11
+#> var10  0.00  1.00  0.14
+#> var11  0.00  0.91  0.25
+#> var12  0.00  0.94  0.22
 ```

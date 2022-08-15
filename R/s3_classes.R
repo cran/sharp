@@ -249,132 +249,73 @@ plot.bi_selection <- function(x, ...) {
 
 
 #' @export
-print.simulation_graphical_model <- function(x, ...) {
-  cat(paste0("Multivariate Normal data with underlying structure of a graphical model."))
-  cat("\n")
-}
-
-
-#' @export
-print.simulation_clustering <- function(x, ...) {
-  cat(paste0("Multivariate Normal data with underlying clusters of participants along (a subset of) variables."))
-  cat("\n")
-}
-
-
-#' @export
-print.simulation_components <- function(x, ...) {
-  cat(paste0("Multivariate Normal data with independent groups of variables."))
-  cat("\n")
-}
-
-
-#' @export
-print.simulation_regression <- function(x, ...) {
-  cat(paste0("Multivariate Normal data with predictors and outcome(s)."))
-  cat("\n")
-}
-
-
-#' @export
-summary.simulation_graphical_model <- function(object, ...) {
-  cat(paste0("Number of observations: ", nrow(object$data)))
-  cat("\n")
-  cat(paste0("Number of variables (nodes): ", ncol(object$data)))
-  cat("\n")
-  cat(paste0("Number of edges: ", sum(object$theta == 1) / 2))
-  cat("\n")
-}
-
-
-#' @export
-summary.simulation_clustering <- function(object, ...) {
-  cat(paste0("Number of observations: ", nrow(object$data)))
-  cat("\n")
-  cat(paste0("Number of clusters: ", max(object$theta)))
-  for (k in 1:max(object$theta)) {
-    cat("\n")
-    cat(paste0("- Cluster ", k, " (N=", sum(object$theta == k), " observations)"))
+coef.variable_selection <- function(object, ...) {
+  # Checking inputs
+  if (!object$methods$family %in% c("gaussian", "binomial", "multinomial", "cox")) {
+    stop("This function can only be applied with the following families for regression models: 'gaussian', 'binomial', 'multinomial' or 'cox'.")
   }
-  cat("\n")
-  cat("\n")
-  cat(paste0("Number of variables: ", ncol(object$data)))
-  cat("\n")
-  cat(paste0("Number of variables contributing to the clustering: ", sum(object$theta_xc)))
-  cat("\n")
-}
 
+  # Extracting index of calibrated parameter
+  argmax_id <- ArgmaxId(stability = object)[1]
 
-#' @export
-summary.simulation_components <- function(object, ...) {
-  cat(paste0("Number of observations: ", nrow(object$data)))
-  cat("\n")
-  cat("\n")
-  cat(paste0("Number of variables: ", ncol(object$data)))
-  cat("\n")
-  cat(paste0("Number of independent groups of variables: ", max(object$membership)))
-  for (k in 1:max(object$membership)) {
-    cat("\n")
-    cat(paste0("- Group ", k, " (N=", sum(object$membership == k), " variables)"))
+  # Extracting beta coefficients
+  if (object$methods$family %in% c("gaussian", "binomial", "cox")) {
+    beta <- t(object$Beta[argmax_id, , ])
   }
-  cat("\n")
+  if (object$methods$family == "multinomial") {
+    tmpbeta <- object$Beta[argmax_id, , , ]
+    beta <- array(NA, dim = c(dim(tmpbeta)[2], dim(tmpbeta)[1], dim(tmpbeta)[3]))
+    for (k in 1:dim(tmpbeta)[3]) {
+      beta[, , k] <- t(tmpbeta[, , k])
+    }
+  }
+  rownames(beta) <- paste0("iter", 1:nrow(beta))
+  # Intercept is not included but could be obtained from Ensemble() for "gaussian" or "binomial"
+
+  return(beta)
 }
 
 
 #' @export
-summary.simulation_regression <- function(object, ...) {
-  cat(paste0("Number of observations: ", nrow(object$xdata)))
-  cat("\n")
-  cat(paste0("Number of outcome variable(s): ", ncol(object$ydata)))
-  cat("\n")
-  cat(paste0("Number of predictor variables: ", ncol(object$xdata)))
-  cat("\n")
-  cat(paste0(
-    "Number of predictor variables contributing to the outcome(s): ",
-    sum(apply(object$beta, 1, sum) != 0)
-  ))
-  cat("\n")
-}
+predict.variable_selection <- function(object, xdata, ydata, newdata = NULL, method = c("ensemble", "refit"), ...) {
+  # Checking inputs
+  if (!object$methods$family %in% c("gaussian", "binomial", "multinomial", "cox")) {
+    stop("This function can only be applied with the following families for regression models: 'gaussian', 'binomial', 'multinomial' or 'cox'.")
+  } else {
+    if (method[[1]] == "ensemble") {
+      if (!object$methods$family %in% c("gaussian", "binomial")) {
+        method <- "refit"
+        message("Predictions from ensemble models is only available for the following families for regression models: 'gaussian' or 'binomial'. Predicted values are obtained from refitting.")
+      }
+    }
+  }
 
+  # Using the same data if not provided
+  if (is.null(newdata)) {
+    newdata <- xdata
+  }
 
-#' @export
-plot.simulation_graphical_model <- function(x, ...) {
-  igraph::plot.igraph(Graph(x$theta), ...)
-}
-
-
-#' @export
-plot.simulation_clustering <- function(x, ...) {
-  # Visualisation of Euclidian distances along the contributing variable
-  Heatmap(
-    mat = as.matrix(stats::dist(x$data[, which(x$theta_xc == 1), drop = FALSE])),
-    col = c("navy", "white", "red")
-  )
-  graphics::title("Distances across variables contributing to clustering")
-}
-
-
-#' @export
-plot.simulation_components <- function(x, ...) {
-  Heatmap(
-    mat = stats::cor(x$data),
-    col = c("navy", "white", "red"),
-    legend_range = c(-1, 1)
-  )
-  graphics::title("Pearson's correlations")
-}
-
-
-#' @export
-plot.simulation_regression <- function(x, ...) {
-  plot(Graph(x$adjacency,
-    satellites = TRUE,
-    node_colour = c(
-      rep("red", ncol(x$ydata)),
-      rep("orange", ncol(x$zdata)),
-      rep("skyblue", ncol(x$xdata))
+  # Predictions from ensemble model
+  if (method[1] == "ensemble") {
+    ensemble <- Ensemble(
+      stability = object,
+      xdata = xdata,
+      ydata = ydata
     )
-  ))
+    yhat <- EnsemblePredictions(
+      ensemble = ensemble,
+      xdata = newdata,
+      ...
+    )
+  }
+
+  # Predictions from refitted model
+  if (method[1] == "refit") {
+    refitted <- Refit(xdata = xdata, ydata = ydata, stability = object)
+    yhat <- stats::predict(object = refitted, newdata = as.data.frame(xdata), ...)
+    yhat <- cbind(yhat)
+  }
+  return(yhat)
 }
 
 
