@@ -2,9 +2,31 @@
 % Please edit documentation in R/explanatory_performance.R
 \name{PlotIncremental}
 \alias{PlotIncremental}
+\alias{IncrementalPlot}
 \title{Visualisation of incremental performance}
 \usage{
 PlotIncremental(
+  perf,
+  quantiles = c(0.05, 0.95),
+  ylab = "Performance",
+  pch = 18,
+  col = "black",
+  col.axis = NULL,
+  cex = 1,
+  cex.lab = 1.5,
+  xcex.axis = 1,
+  ycex.axis = 1,
+  xlas = 2,
+  ylas = 1,
+  sfrac = 0.005,
+  ylim = NULL,
+  bty = "o",
+  xgrid = FALSE,
+  ygrid = FALSE,
+  output_data = FALSE
+)
+
+IncrementalPlot(
   perf,
   quantiles = c(0.05, 0.95),
   ylab = "Performance",
@@ -187,8 +209,6 @@ PlotIncremental(perf, col = c(rep("red", N), rep("grey", 20 - N)))
 
 Other prediction performance functions: 
 \code{\link{ExplanatoryPerformance}()},
-\code{\link{Incremental}()},
-\code{\link{PlotROC}()},
-\code{\link{ROC}()}
+\code{\link{Incremental}()}
 }
 \concept{prediction performance functions}

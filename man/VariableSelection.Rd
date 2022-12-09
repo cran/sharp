@@ -26,6 +26,7 @@ VariableSelection(
   n_cores = 1,
   output_data = FALSE,
   verbose = TRUE,
+  beep = NULL,
   ...
 )
 }
@@ -122,6 +123,10 @@ penalisation.}
 \item{verbose}{logical indicating if a loading bar and messages should be
 printed.}
 
+\item{beep}{sound indicating the end of the run. Possible values are:
+\code{NULL} (no sound) or an integer between 1 and 11 (see argument
+\code{sound} in \code{\link[beepr]{beep}}).}
+
 \item{...}{additional parameters passed to the functions provided in
 \code{implementation} or \code{resampling}.}
 }
@@ -208,12 +213,13 @@ In stability selection, a feature selection algorithm is fitted on
   Meinshausen and Bühlmann (2010) and Shah and Samworth (2013)).
 
   Possible resampling procedures include defining (i) \code{K} subsamples of
-  a proportion \code{tau} of the observations, (ii) \code{K} bootstrap samples
-  with the full sample size (obtained with replacement), and (iii) \code{K/2}
-  splits of the data in half for complementary pair stability selection (see
-  arguments \code{resampling} and \code{cpss}). In complementary pair
-  stability selection, a feature is considered selected at a given resampling
-  iteration if it is selected in the two complementary subsamples.
+  a proportion \code{tau} of the observations, (ii) \code{K} bootstrap
+  samples with the full sample size (obtained with replacement), and (iii)
+  \code{K/2} splits of the data in half for complementary pair stability
+  selection (see arguments \code{resampling} and \code{cpss}). In
+  complementary pair stability selection, a feature is considered selected at
+  a given resampling iteration if it is selected in the two complementary
+  subsamples.
 
   For categorical or time to event outcomes (argument \code{family} is
   \code{"binomial"}, \code{"multinomial"} or \code{"cox"}), the proportions
@@ -243,6 +249,7 @@ print(stab)
 CalibrationPlot(stab)
 summary(stab)
 SelectedVariables(stab)
+plot(stab)
 
 # Using additional arguments from glmnet (e.g. penalty.factor)
 stab <- VariableSelection(
@@ -253,23 +260,14 @@ summary(stab)
 
 # Regression with multivariate outcomes
 set.seed(1)
-simul <- SimulateRegression(n = 100, pk = c(20, 30), family = "gaussian")
+simul <- SimulateRegression(n = 100, pk = 20, q = 3, family = "gaussian")
 stab <- VariableSelection(xdata = simul$xdata, ydata = simul$ydata, family = "mgaussian")
 summary(stab)
 
 # Logistic regression
 set.seed(1)
-simul <- SimulateRegression(n = 200, pk = 20, family = "binomial")
+simul <- SimulateRegression(n = 200, pk = 10, family = "binomial", ev_xy = 0.8)
 stab <- VariableSelection(xdata = simul$xdata, ydata = simul$ydata, family = "binomial")
-summary(stab)
-
-# Multinomial regression
-set.seed(1)
-simul <- SimulateRegression(n = 200, pk = 15, family = "multinomial")
-stab <- VariableSelection(
-  xdata = simul$xdata, ydata = simul$ydata,
-  family = "multinomial"
-)
 summary(stab)
 
 # Sparse PCA (1 component, see BiSelection for more components)
@@ -410,16 +408,17 @@ par(oldpar)
 \references{
 \insertRef{ourstabilityselection}{sharp}
 
+  \insertRef{stabilityselectionSS}{sharp}
+
   \insertRef{stabilityselectionMB}{sharp}
 
-  \insertRef{stabilityselectionSS}{sharp}
+  \insertRef{lasso}{sharp}
 }
 \seealso{
 \code{\link{PenalisedRegression}}, \code{\link{SelectionAlgo}},
   \code{\link{LambdaGridRegression}}, \code{\link{Resample}},
   \code{\link{StabilityScore}} \code{\link{Refit}},
-  \code{\link{ExplanatoryPerformance}}, \code{\link{PlotROC}},
-  \code{\link{Incremental}}, \code{\link{PlotIncremental}}
+  \code{\link{ExplanatoryPerformance}}, \code{\link{Incremental}},
 
 Other stability selection functions: 
 \code{\link{BiSelection}()},

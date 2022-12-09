@@ -30,6 +30,7 @@ BiSelection(
   n_cores = 1,
   output_data = FALSE,
   verbose = TRUE,
+  beep = NULL,
   ...
 )
 }
@@ -134,6 +135,10 @@ calibration is used (the default).}
 
 \item{verbose}{logical indicating if a loading bar and messages should be
 printed.}
+
+\item{beep}{sound indicating the end of the run. Possible values are:
+\code{NULL} (no sound) or an integer between 1 and 11 (see argument
+\code{sound} in \code{\link[beepr]{beep}}).}
 
 \item{...}{additional parameters passed to the functions provided in
 \code{implementation} or \code{resampling}.}
@@ -288,7 +293,7 @@ SelectedVariables(stab)
 
 # Data simulation (continuous outcomes)
 set.seed(1)
-simul <- SimulateRegression(n = 50, pk = c(5, 5, 5), family = "gaussian")
+simul <- SimulateRegression(n = 100, pk = 15, q = 3, family = "gaussian")
 x <- simul$xdata
 y <- simul$ydata
 
@@ -368,9 +373,9 @@ summary(stab)
 
 ## Sparse/Group PLS-DA (Discriminant Analysis)
 
-# Data simulation (categorical outcomes)
+# Data simulation (binary outcomes)
 set.seed(1)
-simul <- SimulateRegression(n = 200, pk = c(5, 5, 5), family = "binomial")
+simul <- SimulateRegression(n = 200, pk = 15, q = 3, family = "binomial")
 x <- simul$xdata
 y <- simul$ydata
 
@@ -420,9 +425,9 @@ par(oldpar)
 
   \insertRef{sparsePLS}{sharp}
 
-  \insertRef{sparsePCA}{sharp}
-
   \insertRef{sparsePCASVD}{sharp}
+
+  \insertRef{sparsePCA}{sharp}
 }
 \seealso{
 \code{\link{SparsePCA}}, \code{\link{SparsePLS}},

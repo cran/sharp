@@ -1,133 +1,3 @@
-#' True and False Positive Rates
-#'
-#' Computes the True and False Positive Rates by comparing the true (observed) and
-#' predicted status. The predicted status is obtained by applying a threshold on
-#' the predicted scores.
-#'
-#' @param observed observed binary status.
-#' @param predicted predicted score.
-#' @param thr threshold for predicted probabilities.
-#'
-#' @return True and False Positive Rates (TPR and FPR, respectively).
-#'
-#' @keywords internal
-Rates <- function(observed, predicted, thr) {
-  contingency <- table(
-    factor(predicted > thr, levels = c(FALSE, TRUE)),
-    factor(observed, levels = c(0, 1))
-  )
-
-  TP <- contingency[2, 2]
-  P <- sum(contingency[, 2])
-  TPR <- TP / P
-
-  FP <- contingency[2, 1]
-  N <- sum(contingency[, 1])
-  FPR <- FP / N
-
-  return(list(TPR = TPR, FPR = FPR))
-}
-
-
-#' Receiver Operating Characteristic (ROC)
-#'
-#' Computes the True and False Positive Rates (TPR and FPR, respectively) and
-#' Area Under the Curve (AUC) by comparing the true (observed) and predicted
-#' status using a range of thresholds on the predicted score.
-#'
-#' @param predicted numeric predicted scores.
-#' @param observed factor encoding the observed binary status.
-#' @param n_thr number of thresholds to use to construct the ROC curve. For
-#'   faster computations on large data, values below \code{length(x)-1} can be
-#'   used.
-#'
-#' @return A list with: \item{TPR}{True Positive Rate.} \item{FPR}{False
-#'   Positive Rate.} \item{AUC}{Area Under the Curve.}
-#'
-#' @family prediction performance functions
-#'
-#' @examples
-#' # Data simulation
-#' set.seed(1)
-#' simul <- SimulateRegression(n = 500, pk = 20, family = "binomial")
-#'
-#' # Balanced training/test split
-#' ids_train <- Resample(
-#'   data = simul$ydata,
-#'   tau = 0.5, family = "binomial"
-#' )
-#' xtrain <- simul$xdata[ids_train, , drop = FALSE]
-#' ytrain <- simul$ydata[ids_train, , drop = FALSE]
-#' x2 <- simul$xdata[-ids_train, , drop = FALSE]
-#' y2 <- simul$ydata[-ids_train, , drop = FALSE]
-#' ids_refit <- Resample(
-#'   data = y2,
-#'   tau = 0.5, family = "binomial"
-#' )
-#' xrefit <- x2[ids_refit, , drop = FALSE]
-#' yrefit <- y2[ids_refit, , drop = FALSE]
-#' xtest <- x2[-ids_refit, ]
-#' ytest <- y2[-ids_refit, ]
-#'
-#' # Stability selection and refitting
-#' stab <- VariableSelection(xdata = xtrain, ydata = ytrain, family = "binomial")
-#' refitted <- Refit(xdata = xrefit, ydata = yrefit, stability = stab)
-#'
-#' # ROC analysis
-#' predicted <- predict(refitted, newdata = as.data.frame(xtest))
-#' roc <- ROC(predicted = predicted, observed = ytest)
-#' PlotROC(roc)
-#' plot(roc) # alternative formulation
-#' @export
-ROC <- function(predicted, observed, n_thr = NULL) {
-  # Checking the inputs
-  predicted <- as.numeric(predicted)
-  if (is.factor(observed)) {
-    observed <- factor(observed, levels = levels(observed), labels = c(0, 1))
-  } else {
-    observed <- factor(observed, levels = sort(unique(observed)), labels = c(0, 1))
-  }
-
-  # Defining the thresholds
-  breaks <- sort(unique(predicted), decreasing = FALSE)
-  if (length(breaks) <= 1) {
-    message("The predicted value is the same for all predictors.")
-    FPR <- TPR <- AUC <- NA
-  } else {
-    breaks <- breaks[-length(breaks)]
-    if (!is.null(n_thr)) {
-      if (length(breaks) > n_thr) {
-        breaks <- breaks[floor(seq(1, length(breaks), length.out = n_thr))]
-      } else {
-        breaks <- seq(min(breaks), max(breaks), length.out = n_thr)
-      }
-    }
-
-    # Computing
-    TPR <- FPR <- rep(NA, length(breaks) + 2)
-    for (k in 1:length(breaks)) {
-      out <- Rates(observed = observed, predicted = predicted, thr = breaks[k])
-      TPR[k + 1] <- out$TPR
-      FPR[k + 1] <- out$FPR
-    }
-    TPR[1] <- FPR[1] <- 1
-    TPR[length(TPR)] <- FPR[length(FPR)] <- 0
-
-    # Computing the AUC
-    tmp <- apply(rbind(TPR[-1], TPR[-length(TPR)]), 2, mean)
-    AUC <- abs(sum(diff(FPR) * tmp))
-  }
-
-  # Preparing output
-  out <- list(FPR = rbind(FPR), TPR = rbind(TPR), AUC = AUC)
-
-  # Defining class
-  class(out) <- "roc_curve"
-
-  return(out)
-}
-
-
 #' Regression model refitting
 #'
 #' Refits the regression model with stably selected variables as predictors
@@ -263,37 +133,6 @@ ROC <- function(predicted, observed, n_thr = NULL) {
 #' head(refitted$fitted.values) # refitted predicted probabilities
 #'
 #'
-#' ## Multinomial regression
-#'
-#' # Data simulation
-#' set.seed(1)
-#' simul <- SimulateRegression(n = 200, pk = 15, family = "multinomial")
-#'
-#' # Data split
-#' ids_train <- Resample(
-#'   data = simul$ydata,
-#'   tau = 0.5, family = "multinomial"
-#' )
-#' xtrain <- simul$xdata[ids_train, , drop = FALSE]
-#' ytrain <- simul$ydata[ids_train, , drop = FALSE]
-#' xrefit <- simul$xdata[-ids_train, , drop = FALSE]
-#' yrefit <- simul$ydata[-ids_train, , drop = FALSE]
-#'
-#' # Stability selection
-#' stab <- VariableSelection(
-#'   xdata = xtrain, ydata = ytrain,
-#'   family = "multinomial"
-#' )
-#'
-#' # Refitting the model
-#' refitted <- Refit(
-#'   xdata = xrefit, ydata = yrefit,
-#'   stability = stab
-#' )
-#' summary(refitted) # refitted coefficients
-#' head(refitted$fitted.values) # refitted predicted probabilities
-#'
-#'
 #' ## Partial Least Squares (single component)
 #'
 #' # Data simulation
@@ -332,7 +171,7 @@ ROC <- function(predicted, observed, n_thr = NULL) {
 #'
 #' # Data simulation
 #' set.seed(1)
-#' simul <- SimulateRegression(n = 200, pk = c(5, 5, 5), family = "gaussian")
+#' simul <- SimulateRegression(n = 500, pk = 15, q = 3, family = "gaussian")
 #'
 #' # Data split
 #' ids_train <- Resample(
@@ -365,7 +204,17 @@ ROC <- function(predicted, observed, n_thr = NULL) {
 #'
 #' @export
 Refit <- function(xdata, ydata, stability = NULL,
-                  family = NULL, implementation = NULL, ...) {
+                  family = NULL, implementation = NULL,
+                  verbose = TRUE, ...) {
+  # Storing extra arguments
+  extra_args <- list(...)
+  if ("check_input" %in% names(extra_args)) {
+    check_input <- extra_args$check_input
+    extra_args <- extra_args[!names(extra_args) %in% "check_input"]
+  } else {
+    check_input <- TRUE
+  }
+
   # Defining the type of model (PLS vs regression)
   use_pls <- FALSE
 
@@ -399,20 +248,29 @@ Refit <- function(xdata, ydata, stability = NULL,
     }
   }
 
-  # Re-formatting the inputs
-  if (is.vector(xdata)) {
-    xdata <- cbind(xdata)
-    colnames(xdata) <- "var"
+  # Object preparation, error and warning messages
+  if (check_input) {
+    CheckDataRegression(
+      xdata = xdata, ydata = ydata, family = family, verbose = verbose
+    )
   }
-  if (family %in% c("binomial", "multinomial")) {
-    if (!is.factor(ydata)) {
-      if (!is.vector(ydata)) {
-        if (ncol(ydata) != 1) {
-          ydata <- DummyToCategories(ydata)
-        }
-      }
-    }
-  }
+
+  # # Re-formatting the inputs
+  # if (is.vector(xdata)) {
+  #   xdata <- cbind(xdata)
+  #   colnames(xdata) <- "var"
+  # }
+  # if (family %in% c("binomial", "multinomial")) {
+  #   if (!is.factor(ydata)) {
+  #     if (!is.vector(ydata)) {
+  #       if (ncol(ydata) != 1) {
+  #         ydata <- DummyToCategories(ydata)
+  #       } else {
+  #         ydata <- as.numeric(ydata)
+  #       }
+  #     }
+  #   }
+  # }
 
   if (use_pls) {
     # Refitting the PLS model
@@ -451,31 +309,77 @@ Refit <- function(xdata, ydata, stability = NULL,
 
       # Recalibration for linear regression
       if (family == "gaussian") {
-        mymodel <- stats::lm(myformula, data = as.data.frame(xdata), ...)
+        tmp_extra_args <- MatchingArguments(extra_args = extra_args, FUN = stats::lm)
+        tmp_extra_args <- tmp_extra_args[!names(tmp_extra_args) %in% c("formula", "data")]
+        mymodel <- do.call(stats::lm, args = c(
+          list(
+            formula = myformula,
+            data = as.data.frame(xdata)
+          ),
+          tmp_extra_args
+        ))
+        # mymodel <- stats::lm(myformula, data = as.data.frame(xdata), ...)
       }
 
       # Recalibration for Cox regression
       if (family == "cox") {
-        ydata <- survival::Surv(ydata[, "time"], ydata[, "case"])
-        mymodel <- survival::coxph(myformula, data = as.data.frame(xdata), ...)
+        tmp_extra_args <- MatchingArguments(extra_args = extra_args, FUN = survival::coxph)
+        tmp_extra_args <- tmp_extra_args[!names(tmp_extra_args) %in% c("formula", "data")]
+        ydata <- survival::Surv(time = ydata[, 1], event = ydata[, 2])
+        mymodel <- do.call(survival::coxph, args = c(
+          list(
+            formula = myformula,
+            data = as.data.frame(xdata)
+          ),
+          tmp_extra_args
+        ))
+        # mymodel <- survival::coxph(myformula, data = as.data.frame(xdata), ...)
       }
 
       # Recalibration for logistic regression
       if (family == "binomial") {
-        mymodel <- stats::glm(myformula,
-          data = as.data.frame(xdata),
-          family = stats::binomial(link = "logit"),
-          ...
-        )
+        tmp_extra_args <- MatchingArguments(extra_args = extra_args, FUN = stats::glm)
+        tmp_extra_args <- tmp_extra_args[!names(tmp_extra_args) %in% c("formula", "data", "family")]
+        mymodel <- do.call(stats::glm, args = c(
+          list(
+            formula = myformula,
+            data = as.data.frame(xdata),
+            family = stats::binomial(link = "logit")
+          ),
+          tmp_extra_args
+        ))
+        # mymodel <- stats::glm(myformula,
+        #   data = as.data.frame(xdata),
+        #   family = stats::binomial(link = "logit"),
+        #   ...
+        # )
       }
 
       # Recalibration for multinomial regression
       if (family == "multinomial") {
-        mymodel <- nnet::multinom(myformula, data = as.data.frame(xdata), trace = FALSE, ...)
+        tmp_extra_args <- MatchingArguments(extra_args = extra_args, FUN = nnet::multinom)
+        tmp_extra_args <- tmp_extra_args[!names(tmp_extra_args) %in% c("formula", "data", "trace")]
+        mymodel <- do.call(nnet::multinom, args = c(
+          list(
+            formula = myformula,
+            data = as.data.frame(xdata),
+            trace = FALSE
+          ),
+          tmp_extra_args
+        ))
+        # mymodel <- nnet::multinom(myformula, data = as.data.frame(xdata), trace = FALSE, ...)
       }
     } else {
+      tmp_extra_args <- extra_args[!names(extra_args) %in% c("xdata", "ydata", "family")]
       xdata <- xdata[, ids, drop = FALSE]
-      mymodel <- do.call(implementation, args = list(xdata = xdata, ydata = ydata, family = family, ...))
+      mymodel <- do.call(implementation, args = c(
+        list(
+          xdata = xdata,
+          ydata = ydata,
+          family = family
+        ),
+        tmp_extra_args
+      ))
     }
   }
 
@@ -520,13 +424,21 @@ Recalibrate <- Refit
 #' @param time numeric indicating the time for which the survival probabilities
 #'   are computed. Only applicable to Cox regression.
 #' @param ij_method logical indicating if the analysis should be done for only
-#'   one refitting/test split with variance of the concordance index should
-#'   be computed using the infinitesimal jackknife method as implemented in
+#'   one refitting/test split with variance of the concordance index should be
+#'   computed using the infinitesimal jackknife method as implemented in
 #'   \code{\link[survival]{concordance}}. If \code{ij_method=FALSE} (the
 #'   default), the concordance indices computed for different refitting/test
 #'   splits are reported. If \code{ij_method=TRUE}, the concordance index and
 #'   estimated confidence interval at level 0.05 are reported. Only applicable
 #'   to Cox regression.
+#' @param resampling resampling approach to create the training set. The default
+#'   is \code{"subsampling"} for sampling without replacement of a proportion
+#'   \code{tau} of the observations. Alternatively, this argument can be a
+#'   function to use for resampling. This function must use arguments named
+#'   \code{data} and \code{tau} and return the IDs of observations to be
+#'   included in the resampled dataset.
+#' @param ... additional parameters passed to the function provided in
+#'   \code{resampling}.
 #'
 #' @details For a fair evaluation of the prediction performance, the data is
 #'   split into a training set (including a proportion \code{tau} of the
@@ -570,7 +482,10 @@ Recalibrate <- Refit
 #'
 #' # Data simulation
 #' set.seed(1)
-#' simul <- SimulateRegression(n = 1000, pk = 10, family = "binomial")
+#' simul <- SimulateRegression(
+#'   n = 1000, pk = 10,
+#'   family = "binomial", ev_xy = 0.7
+#' )
 #'
 #' # Balanced split: 50% variable selection set and 50% for evaluation of performances
 #' ids_train <- Resample(
@@ -590,7 +505,7 @@ Recalibrate <- Refit
 #'   xdata = xtest, ydata = ytest,
 #'   stability = stab, n_thr = NULL
 #' )
-#' PlotROC(roc)
+#' plot(roc)
 #'
 #' # Using more refitting/test splits
 #' roc <- ExplanatoryPerformance(
@@ -598,14 +513,14 @@ Recalibrate <- Refit
 #'   stability = stab, K = 100
 #' )
 #' boxplot(roc$AUC, ylab = "AUC")
-#' PlotROC(roc)
+#' plot(roc)
 #'
 #' # Comparison with saturated model
 #' roc <- ExplanatoryPerformance(
 #'   xdata = xtest, ydata = ytest,
 #'   family = "binomial", K = 100
 #' )
-#' PlotROC(roc, col = "blue", col_band = "blue", add = TRUE)
+#' plot(roc, col = "blue", col_band = "blue", add = TRUE)
 #'
 #'
 #' ## Partial Least Squares (single component)
@@ -635,7 +550,7 @@ Recalibrate <- Refit
 #'   stability = stab,
 #'   implementation = PLSDA, prediction = PredictPLSDA
 #' )
-#' PlotROC(roc)
+#' plot(roc)
 #'
 #'
 #' ## Cox regression
@@ -725,10 +640,11 @@ Recalibrate <- Refit
 #' @export
 ExplanatoryPerformance <- function(xdata, ydata,
                                    stability = NULL, family = NULL,
-                                   implementation = NULL, prediction = NULL,
+                                   implementation = NULL, prediction = NULL, resampling = "subsampling",
                                    K = 1, tau = 0.8, seed = 1,
                                    n_thr = NULL,
-                                   ij_method = FALSE, time = 1000) {
+                                   ij_method = FALSE, time = 1000,
+                                   verbose = TRUE, ...) {
   # Checking the inputs
   if (!is.null(stability)) {
     if (!inherits(stability, "variable_selection")) {
@@ -749,10 +665,17 @@ ExplanatoryPerformance <- function(xdata, ydata,
     }
   }
 
-  # Re-formatting input data
-  if (is.vector(ydata)) {
-    ydata <- cbind(ydata)
-  }
+  # Object preparation, error and warning messages
+  CheckDataRegression(
+    xdata = xdata, ydata = ydata, family = family, verbose = verbose
+  )
+
+  # # Re-formatting input data
+  # if (is.vector(ydata)) {
+  #   ydata <- cbind(ydata)
+  # }
+
+  # Defining the metric to use
   if (ij_method) {
     K <- 1
   }
@@ -775,6 +698,11 @@ ExplanatoryPerformance <- function(xdata, ydata,
   # Setting seed for reproducibility
   withr::local_seed(seed)
 
+  # Defining the number of thresholds to use for AUC calculations
+  if (is.null(n_thr)) {
+    n_thr <- floor((1 - tau) * nrow(xdata))
+  }
+
   # Running the subsampling iterations
   iter <- 0
   for (k in 1:K) {
@@ -782,7 +710,7 @@ ExplanatoryPerformance <- function(xdata, ydata,
       iter <- iter + 1
       if (n_folds == 1) {
         # Balanced training/test split
-        ids_test <- Resample(data = ydata, tau = 1 - tau, family = family)
+        ids_test <- Resample(data = ydata, tau = 1 - tau, family = family, resampling = resampling, ...)
       } else {
         if (fold_id == 1) {
           ids_folds <- Folds(data = ydata, n_folds = n_folds)
@@ -799,7 +727,9 @@ ExplanatoryPerformance <- function(xdata, ydata,
         xdata = xtrain, ydata = ytrain,
         stability = stability,
         implementation = implementation,
-        family = family
+        family = family,
+        check_input = FALSE,
+        ...
       )
 
       if (is.null(implementation)) {
@@ -840,7 +770,7 @@ ExplanatoryPerformance <- function(xdata, ydata,
 
         # Initialisation of the object
         if (iter == 1) {
-          n_thr <- length(roc$FPR) - 2
+          # n_thr <- length(roc$FPR) - 2
           FPR <- TPR <- matrix(NA, nrow = K * n_folds, ncol = length(roc$TPR))
           AUC <- rep(NA, K * n_folds)
         }
@@ -866,7 +796,7 @@ ExplanatoryPerformance <- function(xdata, ydata,
       if (tolower(metric) == "concordance") {
         # Computing the concordance index for given times
         predicted <- stats::predict(refitted, newdata = as.data.frame(xtest), type = "lp")
-        survobject <- survival::Surv(ytest[, "time"], ytest[, "case"])
+        survobject <- survival::Surv(time = ytest[, 1], event = ytest[, 2])
         S0 <- summary(survival::survfit(refitted), times = time, extend = TRUE)$surv
         S <- S0^exp(predicted)
         cstat <- survival::concordance(survobject ~ S)
@@ -908,6 +838,9 @@ ExplanatoryPerformance <- function(xdata, ydata,
     out <- c(out, Beta = list(Beta))
   }
 
+  # Defining class
+  class(out) <- "roc_band"
+
   return(out)
 }
 
@@ -922,6 +855,8 @@ ExplanatoryPerformance <- function(xdata, ydata,
 #'
 #' @inheritParams ExplanatoryPerformance
 #' @param n_predictors number of predictors to consider.
+#' @param verbose logical indicating if a loading bar and messages should be
+#'   printed.
 #'
 #' @return An object of class \code{incremental}.
 #'
@@ -1100,11 +1035,12 @@ ExplanatoryPerformance <- function(xdata, ydata,
 #' @export
 Incremental <- function(xdata, ydata,
                         stability = NULL, family = NULL,
-                        implementation = NULL, prediction = NULL,
+                        implementation = NULL, prediction = NULL, resampling = "subsampling",
                         n_predictors = NULL,
                         K = 100, tau = 0.8, seed = 1,
                         n_thr = NULL,
-                        ij_method = FALSE, time = 1000) {
+                        ij_method = FALSE, time = 1000,
+                        verbose = TRUE, ...) {
   # Checking the inputs
   if (!is.null(stability)) {
     if (!inherits(stability, "variable_selection")) {
@@ -1169,6 +1105,10 @@ Incremental <- function(xdata, ydata,
     Q_squared <- list()
   }
 
+  if (verbose) {
+    pb <- utils::txtProgressBar(style = 3)
+  }
+
   for (k in 1:n_predictors) {
     perf <- ExplanatoryPerformance(
       xdata = xdata[, myorder[1:k], drop = FALSE],
@@ -1177,9 +1117,11 @@ Incremental <- function(xdata, ydata,
       family = family,
       implementation = implementation,
       prediction = prediction,
+      resampling = resampling,
       K = K, tau = tau, seed = seed,
       n_thr = n_thr,
-      ij_method = ij_method, time = time
+      ij_method = ij_method, time = time,
+      ...
     )
     if (family == "binomial") {
       FPR <- c(FPR, list(perf$FPR))
@@ -1199,6 +1141,10 @@ Incremental <- function(xdata, ydata,
       Q_squared <- c(Q_squared, list(perf$Q_squared))
     }
     Beta <- c(Beta, list(perf$Beta))
+
+    if (verbose) {
+      utils::setTxtProgressBar(pb, k / n_predictors)
+    }
   }
 
   # Preparing the output
@@ -1228,119 +1174,6 @@ Incremental <- function(xdata, ydata,
   class(out) <- "incremental"
 
   return(out)
-}
-
-
-#' Receiver Operating Characteristic (ROC) curve
-#'
-#' Plots the True Positive Rate (TPR) as a function of the False Positive Rate
-#' (FPR) for different thresholds in predicted probabilities. If the results
-#' from multiple ROC analyses are provided (e.g. output of
-#' \code{\link{ExplanatoryPerformance}} with large \code{K}), the point-wise
-#' median is represented and flanked by a transparent band defined by
-#' point-wise \code{quantiles}.
-#'
-#' @inheritParams CalibrationPlot
-#' @param roc output of \code{\link{ROC}} or
-#'   \code{\link{ExplanatoryPerformance}}.
-#' @param col colour of the point-wise median curve.
-#' @param col_band colour of the band defined by point-wise \code{quantiles}.
-#' @param alpha level of opacity for the band.
-#' @param quantiles point-wise quantiles of the performances defining the band.
-#' @param add logical indicating if the curve should be added to the current
-#'   plot.
-#'
-#' @return A plot.
-#'
-#' @family prediction performance functions
-#'
-#' @seealso \code{\link{VariableSelection}}, \code{\link{Refit}}
-#'
-#' @examples
-#' # Data simulation
-#' set.seed(1)
-#' simul <- SimulateRegression(n = 500, pk = 10, family = "binomial")
-#'
-#' # Balanced split: 50% variable selection set and 50% for evaluation of performances
-#' ids_train <- Resample(
-#'   data = simul$ydata,
-#'   tau = 0.5, family = "binomial"
-#' )
-#' xtrain <- simul$xdata[ids_train, ]
-#' ytrain <- simul$ydata[ids_train, ]
-#' xtest <- simul$xdata[-ids_train, ]
-#' ytest <- simul$ydata[-ids_train, ]
-#'
-#' # Stability selection
-#' stab <- VariableSelection(xdata = xtrain, ydata = ytrain, family = "binomial")
-#'
-#' # Evaluation of the performances on refitted models (K=1)
-#' roc <- ExplanatoryPerformance(
-#'   xdata = xtest, ydata = ytest,
-#'   stability = stab, n_thr = NULL
-#' )
-#' PlotROC(roc)
-#'
-#' # Using more refitting/test splits
-#' roc <- ExplanatoryPerformance(
-#'   xdata = xtest, ydata = ytest,
-#'   stability = stab, K = 100
-#' )
-#' PlotROC(roc)
-#'
-#' # Comparison with saturated model
-#' roc <- ExplanatoryPerformance(
-#'   xdata = xtest, ydata = ytest,
-#'   family = "binomial", K = 100
-#' )
-#' PlotROC(roc, col = "blue", col_band = "blue", add = TRUE)
-#' @export
-PlotROC <- function(roc,
-                    xlab = "False Positive Rate",
-                    ylab = "True Positive Rate",
-                    col = "red", col_band = NULL,
-                    alpha = 0.5,
-                    lwd = 1, lty = 1,
-                    quantiles = c(0.05, 0.95),
-                    add = FALSE) {
-  # Extracting the number of iterations
-  niter <- length(roc$AUC)
-
-  # Defining the band colour
-  if (is.null(col_band)) {
-    col_band <- col
-  }
-
-  # Initialising the plot
-  if (!add) {
-    plot(NULL,
-      xlim = c(0, 1), ylim = c(0, 1),
-      type = "l", lwd = 2,
-      xlab = xlab, ylab = ylab,
-      las = 1, cex.lab = 1.3,
-      panel.first = graphics::abline(0, 1, lty = 3)
-    )
-  }
-
-  # Defining quantile bands
-  if (nrow(roc$FPR) > 1) {
-    xseq <- apply(roc$FPR, 2, FUN = function(x) {
-      sort(x)[rev(quantiles) * niter]
-    })
-    yseq <- apply(roc$TPR, 2, FUN = function(x) {
-      sort(x)[quantiles * niter]
-    })
-    graphics::polygon(c(xseq[1, ], rev(xseq[2, ])),
-      c(yseq[1, ], rev(yseq[2, ])),
-      col = grDevices::adjustcolor(col_band, alpha.f = alpha),
-      border = NA
-    )
-  }
-
-  # Adding the point-wise average
-  graphics::lines(apply(roc$FPR, 2, stats::median), apply(roc$TPR, 2, stats::median),
-    type = "l", lwd = lwd, lty = lty, col = col
-  )
 }
 
 
@@ -1499,22 +1332,22 @@ PlotIncremental <- function(perf, quantiles = c(0.05, 0.95),
       xlower <- perf$lower
       xupper <- perf$upper
     } else {
-      x <- sapply(perf$concordance, stats::median)
-      xlower <- sapply(perf$concordance, stats::quantile, probs = quantiles[1])
-      xupper <- sapply(perf$concordance, stats::quantile, probs = quantiles[2])
+      x <- sapply(perf$concordance, stats::median, na.rm = TRUE)
+      xlower <- sapply(perf$concordance, stats::quantile, probs = quantiles[1], na.rm = TRUE)
+      xupper <- sapply(perf$concordance, stats::quantile, probs = quantiles[2], na.rm = TRUE)
     }
   }
 
   if ("AUC" %in% names(perf)) {
-    x <- sapply(perf$AUC, stats::median)
-    xlower <- sapply(perf$AUC, stats::quantile, probs = quantiles[1])
-    xupper <- sapply(perf$AUC, stats::quantile, probs = quantiles[2])
+    x <- sapply(perf$AUC, stats::median, na.rm = TRUE)
+    xlower <- sapply(perf$AUC, stats::quantile, probs = quantiles[1], na.rm = TRUE)
+    xupper <- sapply(perf$AUC, stats::quantile, probs = quantiles[2], na.rm = TRUE)
   }
 
   if ("Q_squared" %in% names(perf)) {
-    x <- sapply(perf$Q_squared, stats::median)
-    xlower <- sapply(perf$Q_squared, stats::quantile, probs = quantiles[1])
-    xupper <- sapply(perf$Q_squared, stats::quantile, probs = quantiles[2])
+    x <- sapply(perf$Q_squared, stats::median, na.rm = TRUE)
+    xlower <- sapply(perf$Q_squared, stats::quantile, probs = quantiles[1], na.rm = TRUE)
+    xupper <- sapply(perf$Q_squared, stats::quantile, probs = quantiles[2], na.rm = TRUE)
   }
   xseq <- 1:length(x)
 
@@ -1577,3 +1410,7 @@ PlotIncremental <- function(perf, quantiles = c(0.05, 0.95),
     return(mat)
   }
 }
+
+#' @rdname PlotIncremental
+#' @export
+IncrementalPlot <- PlotIncremental

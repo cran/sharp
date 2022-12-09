@@ -157,10 +157,9 @@
 #'
 #'   \insertRef{sparsePLS}{sharp}
 #'
-#'   \insertRef{sparsePCA}{sharp}
-#'
 #'   \insertRef{sparsePCASVD}{sharp}
 #'
+#'   \insertRef{sparsePCA}{sharp}
 #'
 #' @examples
 #' \donttest{
@@ -195,7 +194,7 @@
 #'
 #' # Data simulation (continuous outcomes)
 #' set.seed(1)
-#' simul <- SimulateRegression(n = 50, pk = c(5, 5, 5), family = "gaussian")
+#' simul <- SimulateRegression(n = 100, pk = 15, q = 3, family = "gaussian")
 #' x <- simul$xdata
 #' y <- simul$ydata
 #'
@@ -275,9 +274,9 @@
 #'
 #' ## Sparse/Group PLS-DA (Discriminant Analysis)
 #'
-#' # Data simulation (categorical outcomes)
+#' # Data simulation (binary outcomes)
 #' set.seed(1)
-#' simul <- SimulateRegression(n = 200, pk = c(5, 5, 5), family = "binomial")
+#' simul <- SimulateRegression(n = 200, pk = 15, q = 3, family = "binomial")
 #' x <- simul$xdata
 #' y <- simul$ydata
 #'
@@ -324,7 +323,7 @@ BiSelection <- function(xdata, ydata = NULL, group_x = NULL, group_y = NULL,
                         family = "gaussian", implementation = SparsePLS,
                         resampling = "subsampling", cpss = FALSE,
                         PFER_method = "MB", PFER_thr = Inf, FDP_thr = Inf,
-                        n_cores = 1, output_data = FALSE, verbose = TRUE, ...) {
+                        n_cores = 1, output_data = FALSE, verbose = TRUE, beep = NULL, ...) {
   # Defining Lambda if used with sparse PCA or PLS
   if (is.null(LambdaX)) {
     if (as.character(substitute(implementation)) %in% c("SparseGroupPLS", "GroupPLS")) {
@@ -777,6 +776,11 @@ BiSelection <- function(xdata, ydata = NULL, group_x = NULL, group_y = NULL,
 
   # Defining the class
   class(out) <- "bi_selection"
+
+  # Making beep
+  if (!is.null(beep)) {
+    beepr::beep(sound = beep)
+  }
 
   return(out)
 }

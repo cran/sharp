@@ -7,7 +7,8 @@
 Adjacency(stability, argmax_id = NULL)
 }
 \arguments{
-\item{stability}{output of \code{\link{GraphicalModel}}.}
+\item{stability}{output of \code{\link{GraphicalModel}} or
+\code{\link{BiSelection}}.}
 
 \item{argmax_id}{optional matrix of parameter IDs. If \code{argmax_id=NULL},
 the calibrated model is used.}

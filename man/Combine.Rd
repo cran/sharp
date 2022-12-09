@@ -20,7 +20,7 @@ models should be concatenated. Only applicable to variable selection.}
 A single output of the same format.
 }
 \description{
-Merges the outputs from \code{\link{VariableSelection}} or
+Merges the outputs from two runs of \code{\link{VariableSelection}} or
 \code{\link{GraphicalModel}}. The two runs must have been done using the same
 \code{methods} and the same \code{params} but with different \code{seed}s.
 The combined output will contain results based on iterations from both
@@ -41,7 +41,7 @@ stab2 <- VariableSelection(xdata = simul$xdata, ydata = simul$ydata, seed = 2, K
 
 # Merging the outputs
 stab <- Combine(stability1 = stab1, stability2 = stab2, include_beta = FALSE)
-print(stab)
+str(stab)
 
 
 ## Graphical modelling
@@ -55,7 +55,7 @@ stab2 <- GraphicalModel(xdata = simul$data, seed = 2, K = 10)
 
 # Merging the outputs
 stab <- Combine(stability1 = stab1, stability2 = stab2)
-print(stab)
+str(stab)
 }
 }
 \seealso{

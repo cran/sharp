@@ -69,9 +69,9 @@ Ensemble <- function(stability, xdata, ydata) {
     models <- list()
     for (k in 1:nrow(beta)) {
       # Calculating intercept for specific beta coefficients
-      b <- beta[k, ]
+      b <- cbind(beta[k, ])
       # a=mean(ydata)-apply(xdata, 2, mean)%*%b
-      tmpy <- ydata - xdata %*% b
+      tmpy <- ydata - as.matrix(xdata) %*% b
       a <- stats::coef(stats::lm(tmpy ~ 1))
       intercept[k] <- a
 
@@ -101,8 +101,8 @@ Ensemble <- function(stability, xdata, ydata) {
     models <- list()
     for (k in 1:nrow(beta)) {
       # Calculating intercept for specific beta coefficients
-      b <- beta[k, ]
-      tmp <- as.vector(xdata %*% b)
+      b <- cbind(beta[k, ])
+      tmp <- as.vector(as.matrix(xdata) %*% b)
       a <- unname(stats::coef(stats::glm(ydata ~ 1, offset = tmp, family = stats::binomial(link = "logit"))))
       intercept[k] <- a
 
@@ -167,7 +167,7 @@ Ensemble <- function(stability, xdata, ydata) {
 #'
 #' # Logistic regression
 #' set.seed(1)
-#' simul <- SimulateRegression(n = 1000, pk = 20, family = "binomial", ev_xz = 0.9)
+#' simul <- SimulateRegression(n = 1000, pk = 20, family = "binomial", ev_xy = 0.9)
 #' ids <- Split(data = simul$ydata, family = "binomial", tau = c(0.8, 0.2))
 #' stab <- VariableSelection(
 #'   xdata = simul$xdata[ids[[1]], ],
@@ -183,7 +183,7 @@ Ensemble <- function(stability, xdata, ydata) {
 #'   ensemble = ensemble,
 #'   xdata = simul$xdata[ids[[2]], ]
 #' )
-#' PlotROC(ROC(predicted = yhat, observed = simul$ydata[ids[[2]], ]))
+#' plot(ROC(predicted = yhat, observed = simul$ydata[ids[[2]], ]))
 #' yhat <- EnsemblePredictions(
 #'   ensemble = ensemble,
 #'   xdata = simul$xdata[ids[[2]], ],

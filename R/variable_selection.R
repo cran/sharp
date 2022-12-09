@@ -77,6 +77,9 @@
 #'   \code{ydata} should be included in the output.
 #' @param verbose logical indicating if a loading bar and messages should be
 #'   printed.
+#' @param beep sound indicating the end of the run. Possible values are:
+#'   \code{NULL} (no sound) or an integer between 1 and 11 (see argument
+#'   \code{sound} in \code{\link[beepr]{beep}}).
 #' @param ... additional parameters passed to the functions provided in
 #'   \code{implementation} or \code{resampling}.
 #'
@@ -117,12 +120,13 @@
 #'   Meinshausen and Bühlmann (2010) and Shah and Samworth (2013)).
 #'
 #'   Possible resampling procedures include defining (i) \code{K} subsamples of
-#'   a proportion \code{tau} of the observations, (ii) \code{K} bootstrap samples
-#'   with the full sample size (obtained with replacement), and (iii) \code{K/2}
-#'   splits of the data in half for complementary pair stability selection (see
-#'   arguments \code{resampling} and \code{cpss}). In complementary pair
-#'   stability selection, a feature is considered selected at a given resampling
-#'   iteration if it is selected in the two complementary subsamples.
+#'   a proportion \code{tau} of the observations, (ii) \code{K} bootstrap
+#'   samples with the full sample size (obtained with replacement), and (iii)
+#'   \code{K/2} splits of the data in half for complementary pair stability
+#'   selection (see arguments \code{resampling} and \code{cpss}). In
+#'   complementary pair stability selection, a feature is considered selected at
+#'   a given resampling iteration if it is selected in the two complementary
+#'   subsamples.
 #'
 #'   For categorical or time to event outcomes (argument \code{family} is
 #'   \code{"binomial"}, \code{"multinomial"} or \code{"cox"}), the proportions
@@ -180,14 +184,15 @@
 #' @seealso \code{\link{PenalisedRegression}}, \code{\link{SelectionAlgo}},
 #'   \code{\link{LambdaGridRegression}}, \code{\link{Resample}},
 #'   \code{\link{StabilityScore}} \code{\link{Refit}},
-#'   \code{\link{ExplanatoryPerformance}}, \code{\link{PlotROC}},
-#'   \code{\link{Incremental}}, \code{\link{PlotIncremental}}
+#'   \code{\link{ExplanatoryPerformance}}, \code{\link{Incremental}},
 #'
 #' @references \insertRef{ourstabilityselection}{sharp}
 #'
+#'   \insertRef{stabilityselectionSS}{sharp}
+#'
 #'   \insertRef{stabilityselectionMB}{sharp}
 #'
-#'   \insertRef{stabilityselectionSS}{sharp}
+#'   \insertRef{lasso}{sharp}
 #'
 #' @import fake
 #'
@@ -204,6 +209,7 @@
 #' CalibrationPlot(stab)
 #' summary(stab)
 #' SelectedVariables(stab)
+#' plot(stab)
 #'
 #' # Using additional arguments from glmnet (e.g. penalty.factor)
 #' stab <- VariableSelection(
@@ -214,23 +220,14 @@
 #'
 #' # Regression with multivariate outcomes
 #' set.seed(1)
-#' simul <- SimulateRegression(n = 100, pk = c(20, 30), family = "gaussian")
+#' simul <- SimulateRegression(n = 100, pk = 20, q = 3, family = "gaussian")
 #' stab <- VariableSelection(xdata = simul$xdata, ydata = simul$ydata, family = "mgaussian")
 #' summary(stab)
 #'
 #' # Logistic regression
 #' set.seed(1)
-#' simul <- SimulateRegression(n = 200, pk = 20, family = "binomial")
+#' simul <- SimulateRegression(n = 200, pk = 10, family = "binomial", ev_xy = 0.8)
 #' stab <- VariableSelection(xdata = simul$xdata, ydata = simul$ydata, family = "binomial")
-#' summary(stab)
-#'
-#' # Multinomial regression
-#' set.seed(1)
-#' simul <- SimulateRegression(n = 200, pk = 15, family = "multinomial")
-#' stab <- VariableSelection(
-#'   xdata = simul$xdata, ydata = simul$ydata,
-#'   family = "multinomial"
-#' )
 #' summary(stab)
 #'
 #' # Sparse PCA (1 component, see BiSelection for more components)
@@ -374,7 +371,7 @@ VariableSelection <- function(xdata, ydata = NULL, Lambda = NULL, pi_list = seq(
                               resampling = "subsampling", cpss = FALSE,
                               PFER_method = "MB", PFER_thr = Inf, FDP_thr = Inf,
                               Lambda_cardinal = 100, group_x = NULL, group_penalisation = FALSE,
-                              n_cores = 1, output_data = FALSE, verbose = TRUE, ...) {
+                              n_cores = 1, output_data = FALSE, verbose = TRUE, beep = NULL, ...) {
   # Defining Lambda if used with sparse PCA or PLS
   if (is.null(Lambda)) {
     if (as.character(substitute(implementation)) %in% c("SparseGroupPLS", "GroupPLS")) {
@@ -386,14 +383,17 @@ VariableSelection <- function(xdata, ydata = NULL, Lambda = NULL, pi_list = seq(
   }
 
   # Object preparation, error and warning messages
-  CheckInputRegression(
-    xdata = xdata, ydata = ydata, Lambda = Lambda, pi_list = pi_list,
+  CheckParamRegression(
+    Lambda = Lambda, pi_list = pi_list,
     K = K, tau = tau, seed = seed, n_cat = n_cat,
     family = family, implementation = implementation,
     resampling = resampling, PFER_method = PFER_method,
     PFER_thr = PFER_thr, FDP_thr = FDP_thr,
     Lambda_cardinal = Lambda_cardinal,
     verbose = verbose
+  )
+  CheckDataRegression(
+    xdata = xdata, ydata = ydata, family = family, verbose = verbose
   )
 
   # Checking that group_x is provided for group penalisation
@@ -456,6 +456,11 @@ VariableSelection <- function(xdata, ydata = NULL, Lambda = NULL, pi_list = seq(
 
   # Defining the class
   class(out) <- "variable_selection"
+
+  # Making beep
+  if (!is.null(beep)) {
+    beepr::beep(sound = beep)
+  }
 
   return(out)
 }
@@ -560,7 +565,7 @@ SerialRegression <- function(xdata, ydata = NULL, Lambda, pi_list = seq(0.6, 0.9
         dimnames = list(rownames(mybeta$beta_full), dimnames(mybeta$beta_full)[[2]], NULL, dimnames(mybeta$beta_full)[[3]])
       )
     } else {
-      stop(paste0("Invalid output from the variable selection function: ", implementation, "(). The output 'beta_full' must be an array with 2 or 3 dimensions."))
+      stop(paste0("Invalid output from the variable selection function provided in 'implementation'. The output 'beta_full' must be an array with 2 or 3 dimensions."))
     }
   }
 
@@ -754,6 +759,9 @@ SerialRegression <- function(xdata, ydata = NULL, Lambda, pi_list = seq(0.6, 0.9
   if (output_data) {
     out$params <- c(out$params, list(xdata = xdata, ydata = ydata))
   }
+
+  # Defining the class
+  class(out) <- "variable_selection"
 
   return(out)
 }

@@ -23,6 +23,7 @@ CalibrationPlot(
   legend = TRUE,
   legend_length = NULL,
   legend_range = NULL,
+  ncol = 1,
   xlab = NULL,
   ylab = NULL,
   zlab = expression(italic(q)),
@@ -31,6 +32,7 @@ CalibrationPlot(
   zlas = 2,
   cex.lab = 1.5,
   cex.axis = 1,
+  cex.legend = 1.2,
   xgrid = FALSE,
   ygrid = FALSE,
   params = c("ny", "alphay", "nx", "alphax")
@@ -95,6 +97,8 @@ is the output of \code{\link{VariableSelection}} or
 the output of \code{\link{VariableSelection}} or
 \code{\link{GraphicalModel}}.}
 
+\item{ncol}{integer indicating the number of columns in the legend.}
+
 \item{xlab}{label of the x-axis.}
 
 \item{ylab}{label of the y-axis.}
@@ -114,6 +118,8 @@ of \code{\link{VariableSelection}} or \code{\link{GraphicalModel}}.}
 \item{cex.lab}{font size for labels.}
 
 \item{cex.axis}{font size for axes.}
+
+\item{cex.legend}{font size for text legend entries.}
 
 \item{xgrid}{logical indicating if a vertical grid should be drawn. Only used
 if \code{stability} is the output of \code{\link{BiSelection}}.}
@@ -163,7 +169,7 @@ CalibrationPlot(stab,
 
 # Data simulation
 set.seed(1)
-simul <- SimulateRegression(n = 50, pk = c(5, 5, 5), family = "gaussian")
+simul <- SimulateRegression(n = 50, pk = 15, q = 3, family = "gaussian")
 x <- simul$xdata
 y <- simul$ydata
 
