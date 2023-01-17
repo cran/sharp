@@ -16,15 +16,18 @@
 #'   (selection proportion \eqn{\le 1-\pi}), and the unstable ones (selection
 #'   proportions between \eqn{1-\pi} and \eqn{\pi}).
 #'
-#'   The likelihood of observing stably selected, stably excluded and unstable
+#'   Under the hypothesis of equiprobability of selection (instability), the
+#'   likelihood of observing stably selected, stably excluded and unstable
 #'   features can be expressed as:
 #'
-#'   \eqn{L_{\lambda, \pi} = \prod_{j=1}^N [ P( H_{\lambda} (j) \geq K
-#'   \pi)^{1_{H_{\lambda} (j) \ge K \pi}} \times P( (1-\pi) K < H_{\lambda} (j)
-#'   < K \pi )^{1_{ (1-\pi) K < H_{\lambda} (j) < K \pi }} \times P( H_{\lambda}
-#'   (j) \leq K (1-\pi) )^{1_{ H_{\lambda} (j) \le K (1-\pi) }} ]}
+#'   \eqn{L_{\lambda, \pi} = \prod_{j=1}^N [ ( 1 - F( K \pi - 1 ) )^{1_{H_{\lambda} (j) \ge K \pi}}
+#'   \times ( F( K \pi - 1 ) - F( K ( 1 - \pi ) )^{1_{ (1-\pi) K < H_{\lambda} (j) < K \pi }}
+#'   \times F( K ( 1 - \pi ) )^{1_{ H_{\lambda} (j) \le K (1-\pi) }} ]}
 #'
-#'   where \eqn{H_{\lambda} (j)} is the selection count of feature \eqn{j}.
+#'   where \eqn{H_{\lambda} (j)} is the selection count of feature \eqn{j} and
+#'   \eqn{F(x)} is the cumulative probability function of the binomial
+#'   distribution with parameters \eqn{K} and the average proportion of selected
+#'   features over resampling iterations.
 #'
 #'   The stability score is computed as the minus log-transformed likelihood
 #'   under the assumption of uniform selection:
@@ -204,4 +207,122 @@ BinomialProbabilities <- function(q, N, pi, K, n_cat = 3) {
     # Output the three probabilities under the assumption of uniform selection procedure
     return(list(p_1 = p_1, p_2 = p_2, p_3 = p_3))
   }
+}
+
+
+#' Consensus score
+#'
+#' Computes the consensus score from the consensus matrix. The score measures
+#' how unlikely it is that the clustering procedure is uniform (i.e.
+#' uninformative) for a given combination of parameters.
+#'
+#' @param coprop consensus matrix obtained with \code{nc} clusters across
+#'   \code{K} subsampling iterations.
+#' @param nc number of clusters.
+#' @param K number of subsampling iterations.
+#' @param linkage character string indicating the type of linkage used in
+#'   hierarchical clustering to define the stable clusters. Possible values
+#'   include \code{"complete"}, \code{"single"} and \code{"average"} (see
+#'   argument \code{"method"} in \code{\link[stats]{hclust}} for a full list).
+#'
+#' @details Let \eqn{\Gamma(\lambda, G)} be the consensus matrix. We introduce
+#'   the matrix \eqn{H(\lambda, G)} of co-membership count corrected for the
+#'   subsampling procedure, defined as the integer part of \eqn{K
+#'   \Gamma(\lambda, G)}.
+#'
+#'   Under the hypothesis of equiprobability of co-membership (instability), we
+#'   assume that the co-membership counts follow the same binomial distribution
+#'   for all pairs of items.
+#'
+#'   Given stable clusters \eqn{Z} and hyper-parameters \eqn{(\lambda, G)},
+#'   clustering stability is measured as the probability \eqn{p_{\lambda,
+#'   G}(H|z)} of observing co-membership counts in \eqn{H} that are at least as
+#'   high within clusters and at least as low between clusters under
+#'   equiprobability:
+#'
+#'   \eqn{p_{\lambda, G}(H|Z) = \prod_{i < j} F(H_{ij})^{1_{Z_i=/=Z_j}}
+#'   \times (1 - F(H_{ij}))^{1_{Z_i=Z_j}}}
+#'
+#'   where \eqn{F(x)} is the cumulative probability function of the binomial
+#'   distribution with parameters \eqn{K} and probability \eqn{\gamma = N_c/N}
+#'   with \eqn{N_c} the number of stable co-members and \eqn{N} the number of
+#'   item pairs.
+#'
+#'   This probability is minimised at \eqn{H^s}, which corresponding to the most
+#'   stable clustering and is defined as:
+#'
+#'   \eqn{H^s_{ij} = K \times 1_{Z_i = Z_j}}
+#'
+#'   The consensus score is calculated as the following standardised
+#'   probability:
+#'
+#'   \eqn{S_c(\lambda, G) = (p_{\lambda, G}(H (\lambda, G)|Z)) / (p_{\lambda,
+#'   G}(H^s|Z))}
+#'
+#'   The consensus score increases with clustering stability.
+#'
+#' @return A consensus score between 0 and 1.
+#'
+#' @family stability metric functions
+#'
+#' @examples
+#'
+#' # Data simulation
+#' set.seed(2)
+#' simul <- SimulateClustering(
+#'   n = c(30, 30, 30),
+#'   nu_xc = 1
+#' )
+#' plot(simul)
+#'
+#' # Consensus clustering
+#' stab <- Clustering(
+#'   xdata = simul$data
+#' )
+#' stab$Sc[3]
+#'
+#' # Calculating the consensus score
+#' ConsensusScore(
+#'   coprop = stab$coprop[, , 3],
+#'   nc = stab$nc[3]
+#' )
+#'
+#' @export
+ConsensusScore <- function(coprop, nc, K = 100, linkage = "complete") {
+  # Clustering on the consensus matrix
+  sh_clust <- stats::hclust(stats::as.dist(1 - coprop), method = linkage)
+
+  # Identifying stable clusters
+  theta <- stats::cutree(sh_clust, k = nc)
+
+  # Probability that items i and j belong to the same cluster
+  N <- length(theta) * (length(theta) - 1) / 2
+  p_unif <- sum(table(theta) * (table(theta) - 1)) / (2 * N) # P(i) * P(j | i)
+
+  # Calculating log-likelihood for observed consensus matrix
+  loglik <- 0
+  for (i in 1:(nrow(coprop) - 1)) {
+    for (j in (i + 1):nrow(coprop)) {
+      if (theta[i] == theta[j]) {
+        loglik <- loglik + stats::pbinom(round(coprop[i, j] * K) - 1, size = K, prob = p_unif, lower.tail = FALSE, log = TRUE)
+      } else {
+        loglik <- loglik + stats::pbinom(round(coprop[i, j] * K), size = K, prob = p_unif, lower.tail = TRUE, log = TRUE)
+      }
+    }
+  }
+
+  # Calculating numbers of within and between cluster pairs
+  n_1 <- p_unif * N
+  n_3 <- (1 - p_unif) * N
+
+  # Calculating log-likelihood for most stable (binary) consensus matrix
+  p_1 <- stats::dbinom(K, size = K, prob = p_unif, log = TRUE)
+  p_3 <- stats::dbinom(0, size = K, prob = p_unif, log = TRUE)
+  best_score <- (n_1 * p_1 + n_3 * p_3)
+
+  # Calculating consensus score as likelihood ratio
+  # score <- (-loglik + worst_score) / (-best_score + worst_score) # ( x - min ) / ( max - min )
+  score <- loglik / best_score # ( x - min ) / ( max - min ) where min is zero
+
+  return(score)
 }

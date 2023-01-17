@@ -40,7 +40,8 @@ drawn. Possible values include: \code{"o"} (default, the box is drawn), or
 \item{pch}{type of point, as in \code{\link[graphics]{points}}.}
 
 \item{lines}{logical indicating if the points should be linked by lines. Only
-used if \code{stability} is the output of \code{\link{BiSelection}}.}
+used if \code{stability} is the output of \code{\link{BiSelection}} or
+\code{\link{Clustering}}.}
 
 \item{col}{vector of colours.}
 

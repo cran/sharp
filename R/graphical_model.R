@@ -155,7 +155,8 @@
 #'   \code{Q_s}, \code{P}, \code{PFER} and \code{FDP}, and indices along the
 #'   third dimension of \code{S_2d} correspond to the different blocks.
 #'
-#' @family stability selection functions
+#' @family stability functions
+#'
 #' @seealso \code{\link{PenalisedGraphical}}, \code{\link{GraphicalAlgo}},
 #'   \code{\link{LambdaGridGraphical}}, \code{\link{Resample}},
 #'   \code{\link{StabilityScore}} \code{\link{Graph}}, \code{\link{Adjacency}},
@@ -333,7 +334,7 @@ GraphicalModel <- function(xdata, pk = NULL, Lambda = NULL, lambda_other_blocks 
   out <- mypar[[1]]
   if (n_cores > 1) {
     for (i in 2:length(mypar)) {
-      out <- do.call(Combine, list(stability1 = out, stability2 = mypar[[2]]))
+      out <- do.call(Combine, list(stability1 = out, stability2 = mypar[[i]]))
     }
   }
 

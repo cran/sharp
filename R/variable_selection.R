@@ -180,7 +180,7 @@
 #'   are ordered in the same way and correspond to parameter values stored in
 #'   \code{Lambda}.
 #'
-#' @family stability selection functions
+#' @family stability functions
 #' @seealso \code{\link{PenalisedRegression}}, \code{\link{SelectionAlgo}},
 #'   \code{\link{LambdaGridRegression}}, \code{\link{Resample}},
 #'   \code{\link{StabilityScore}} \code{\link{Refit}},
@@ -438,7 +438,7 @@ VariableSelection <- function(xdata, ydata = NULL, Lambda = NULL, pi_list = seq(
   out <- mypar[[1]]
   if (n_cores > 1) {
     for (i in 2:length(mypar)) {
-      out <- do.call(Combine, list(stability1 = out, stability2 = mypar[[2]]))
+      out <- do.call(Combine, list(stability1 = out, stability2 = mypar[[i]]))
     }
   }
 

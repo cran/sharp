@@ -1,11 +1,11 @@
-#' Calibrated parameter indices
+#' Calibrated hyper-parameter(s)
 #'
-#' Extracts the indices of calibrated parameters with respect to the grids
-#' provided in \code{Lambda} and \code{pi_list} in \code{stability}.
+#' Extracts the calibrated hyper-parameters (or their indices for
+#' \code{\link{ArgmaxId}}) with respect to the grids provided in \code{Lambda}
+#' and \code{pi_list} in argument \code{stability}.
 #'
 #' @param stability output of \code{\link{VariableSelection}} or
-#'   \code{\link{GraphicalModel}}. If \code{stability=NULL}, \code{S} must be
-#'   provided.
+#'   \code{\link{GraphicalModel}}.
 #' @param S matrix of stability scores obtained with different combinations of
 #'   parameters where rows correspond to different values of the parameter
 #'   controlling the level of sparsity in the underlying feature selection
@@ -13,10 +13,10 @@
 #'   selection proportions. If \code{S=NULL}, argument \code{stability} must be
 #'   provided.
 #'
-#' @return A matrix of parameter indices. For multi-block graphical models, rows
-#'   correspond to different blocks.
+#' @return A matrix of hyper-parameters (\code{\link{Argmax}}) or indices
+#'   (\code{\link{ArgmaxId}}). For multi-block graphical models, rows correspond
+#'   to different blocks.
 #'
-#' @family calibration functions
 #' @seealso \code{\link{VariableSelection}}, \code{\link{GraphicalModel}}
 #'
 #' @examples
@@ -27,16 +27,17 @@
 #' # Stability selection
 #' stab <- GraphicalModel(xdata = simul$data)
 #'
-#' # Extracting IDs of calibrated parameters
+#' # Extracting calibrated hyper-parameters
+#' Argmax(stab)
+#'
+#' # Extracting calibrated hyper-parameters IDs
 #' ids <- ArgmaxId(stab)
+#' ids
+#'
+#' # Relationship between the two functions
 #' stab$Lambda[ids[1], 1]
 #' stab$params$pi_list[ids[2]]
 #'
-#' # Alternative formulation
-#' ids2 <- ArgmaxId(S = stab$S_2d)
-#'
-#' # Link with Argmax() function
-#' args <- Argmax(stab)
 #' @export
 ArgmaxId <- function(stability = NULL, S = NULL) {
   if ((is.null(stability)) & (is.null(S))) {
@@ -51,14 +52,7 @@ ArgmaxId <- function(stability = NULL, S = NULL) {
       Sc <- round(stability$Sc, digits = 4)
       argmax_id <- which(Sc == max(Sc, na.rm = TRUE))
       argmax_id <- argmax_id[which(stability$nc[argmax_id] == max(stability$nc[argmax_id]))]
-      # argmax_id <- argmax_id[which(stability$Q[argmax_id] == min(stability$Q[argmax_id]))]
       argmax_id <- cbind(min(argmax_id))
-
-      # if (any(!is.na(stability$S_2d[argmax_id, ]))) {
-      #   argmax_id <- matrix(c(argmax_id, which.max(stability$S_2d[argmax_id, ])), ncol = 2)
-      # } else {
-      #   argmax_id <- matrix(c(argmax_id, NA), ncol = 2)
-      # }
     } else {
       argmax_id <- matrix(NA, nrow = ncol(stability$Lambda), ncol = 2)
       if (is.null(stability$params$lambda_other_blocks) & (length(stability$params$pk) > 1)) {
@@ -98,38 +92,7 @@ ArgmaxId <- function(stability = NULL, S = NULL) {
 }
 
 
-#' Calibrated parameters
-#'
-#' Extracts calibrated parameter values in stability selection.
-#'
-#' @param stability output of \code{\link{VariableSelection}},
-#'   \code{\link{BiSelection}} or \code{\link{GraphicalModel}}.
-#'
-#' @return A matrix of parameter values. If applied to the output of
-#'   \code{\link{VariableSelection}} or \code{\link{GraphicalModel}}, the first
-#'   column (\code{lambda}) denotes the calibrated hyper-parameter of the
-#'   underlying algorithm. The second column (\code{pi}) is the calibrated
-#'   threshold in selection/co-membership proportions. For multi-block graphical
-#'   models, rows correspond to different blocks. If applied to the output of
-#'   \code{\link{BiSelection}}, all columns are named as in object
-#'   \code{summary}.
-#'
-#' @family calibration functions
-#' @seealso \code{\link{VariableSelection}}, \code{\link{GraphicalModel}},
-#'   \code{\link{BiSelection}}
-#'
-#' @examples
-#' ## Graphical modelling
-#'
-#' # Data simulation
-#' set.seed(1)
-#' simul <- SimulateGraphical(pk = 20)
-#'
-#' # Stability selection
-#' stab <- GraphicalModel(xdata = simul$data)
-#'
-#' # Extracting calibrated parameters
-#' Argmax(stab)
+#' @rdname ArgmaxId
 #' @export
 Argmax <- function(stability) {
   clustering <- ifelse(inherits(stability, "clustering"), yes = TRUE, no = FALSE)
@@ -172,287 +135,6 @@ Argmax <- function(stability) {
   }
 
   return(argmax)
-}
-
-
-#' Calibrated adjacency matrix
-#'
-#' Extracts the adjacency matrix of the (calibrated) stability selection
-#' graphical model.
-#'
-#' @param stability output of \code{\link{GraphicalModel}} or
-#'   \code{\link{BiSelection}}.
-#' @param argmax_id optional matrix of parameter IDs. If \code{argmax_id=NULL},
-#'   the calibrated model is used.
-#'
-#' @return A binary and symmetric adjacency matrix encoding an undirected graph
-#'   with no self-loops.
-#'
-#' @family calibration functions
-#' @seealso \code{\link{GraphicalModel}}
-#'
-#' @examples
-#' # Data simulation
-#' set.seed(1)
-#' simul <- SimulateGraphical(pk = 20)
-#'
-#' # Stability selection
-#' stab <- GraphicalModel(xdata = simul$data)
-#'
-#' # Calibrated adjacency matrix
-#' A <- Adjacency(stab)
-#'
-#' # User-defined parameters
-#' myids <- matrix(c(20, 10), nrow = 1)
-#' stab$Lambda[myids[1], 1] # corresponding penalty
-#' stab$params$pi_list[myids[2]] # corresponding threshold
-#' A <- Adjacency(stab, argmax_id = myids)
-#' @export
-Adjacency <- function(stability, argmax_id = NULL) {
-  if (!inherits(stability, c("graphical_model", "bi_selection"))) {
-    stop("Invalid input for argument 'stability'. This function only applies to outputs from GraphicalModel() or BiSelection().")
-  }
-
-  if (inherits(stability, "bi_selection")) {
-    if ("selectedY" %in% names(stability)) {
-      A <- Square(t(rbind(stability$selectedX, stability$selectedY)))
-    } else {
-      A <- Square(stability$selectedX)
-    }
-  }
-
-  if (inherits(stability, "graphical_model")) {
-    A <- matrix(0, ncol = ncol(stability$selprop), nrow = nrow(stability$selprop))
-    bigblocks <- BlockMatrix(stability$params$pk)
-    if (is.null(argmax_id)) {
-      argmax_id <- ArgmaxId(stability)
-      argmax <- Argmax(stability)
-    } else {
-      argmax <- NULL
-      for (block_id in 1:ncol(stability$Lambda)) {
-        argmax <- rbind(argmax, c(
-          stability$Lambda[argmax_id[block_id, 1], block_id],
-          stability$params$pi_list[argmax_id[block_id, 2]]
-        ))
-      }
-    }
-    for (block_id in 1:ncol(stability$Lambda)) {
-      A_block <- ifelse(stability$selprop[, , argmax_id[block_id, 1]] >= argmax[block_id, 2], 1, 0)
-      if (length(stability$params$pk) > 1) {
-        A_block[bigblocks != block_id] <- 0
-      }
-      A <- A + A_block
-    }
-  }
-
-  A[is.na(A)] <- 0
-  return(A)
-}
-
-
-#' Stably selected variables
-#'
-#' Extracts the (calibrated) set of stably selected variables.
-#'
-#' @inheritParams Adjacency
-#' @param stability output of \code{\link{VariableSelection}}, or
-#'   \code{\link{BiSelection}}.
-#'
-#' @return A binary vector encoding the selection status of the variables
-#'   (\code{1} if selected, \code{0} otherwise).
-#'
-#' @family calibration functions
-#' @seealso \code{\link{VariableSelection}}, \code{\link{BiSelection}}
-#'
-#' @examples
-#' \donttest{
-#' # Data simulation
-#' set.seed(1)
-#' simul <- SimulateRegression(pk = 50)
-#'
-#' # Stability selection
-#' stab <- VariableSelection(xdata = simul$xdata, ydata = simul$ydata)
-#'
-#' # Calibrated set
-#' selected <- SelectedVariables(stab)
-#'
-#' # User-defined parameters
-#' myids <- matrix(c(50, 10), nrow = 1)
-#' stab$Lambda[myids[1], 1] # corresponding penalty
-#' stab$params$pi_list[myids[2]] # corresponding threshold
-#' selected <- SelectedVariables(stab, argmax_id = myids)
-#' }
-#' @export
-SelectedVariables <- function(stability, argmax_id = NULL) {
-  if (!inherits(stability, c("clustering", "variable_selection", "bi_selection"))) {
-    stop("Invalid input for argument 'stability'. This function only applies to outputs from VariableSelection() or BiSelection().")
-  }
-
-  if (inherits(stability, "variable_selection")) {
-    if (is.null(argmax_id)) {
-      argmax_id <- ArgmaxId(stability)
-      argmax <- Argmax(stability)
-    } else {
-      argmax <- c(NA, stability$params$pi_list[argmax_id[2]])
-    }
-    stability_selected <- ifelse(stability$selprop[argmax_id[1], ] >= argmax[2],
-      yes = 1, no = 0
-    )
-  }
-
-  if (inherits(stability, "bi_selection")) {
-    if (is.null(argmax_id)) {
-      stability_selected <- stability$selectedX
-    } else {
-      stop("Invalid input for argument 'argmax_id'. Arbitrary choice of parameters is not supported for the output of BiSelection().")
-    }
-  }
-
-  return(stability_selected)
-}
-
-
-#' Selection proportions
-#'
-#' Extracts the selection (or co-membership) proportions of the (calibrated)
-#' model.
-#'
-#' @inheritParams Adjacency
-#' @param stability output of \code{\link{VariableSelection}},
-#'   \code{\link{GraphicalModel}}, or \code{\link{BiSelection}}.
-#'
-#' @return A symmetric matrix (graphical model) or vector (variable selection)
-#'   of selection proportions.
-#'
-#' @family calibration functions
-#' @seealso \code{\link{VariableSelection}}, \code{\link{GraphicalModel}},
-#'   \code{\link{BiSelection}}
-#'
-#' @examples
-#' \donttest{
-#' ## Variable selection
-#'
-#' # Data simulation
-#' set.seed(1)
-#' simul <- SimulateRegression(pk = 50)
-#'
-#' # Stability selection
-#' stab <- VariableSelection(xdata = simul$xdata, ydata = simul$ydata)
-#'
-#' # Calibrated selection proportions
-#' prop <- SelectionProportions(stab)
-#'
-#' # User-defined parameters
-#' myids <- matrix(c(80, 10), nrow = 1)
-#' stab$Lambda[myids[1], 1] # corresponding penalty
-#' stab$params$pi_list[myids[2]] # corresponding threshold
-#' prop <- SelectionProportions(stab, argmax_id = myids)
-#'
-#'
-#' ## Graphical model
-#'
-#' # Data simulation
-#' set.seed(1)
-#' simul <- SimulateGraphical(pk = 20)
-#'
-#' # Stability selection
-#' stab <- GraphicalModel(xdata = simul$data)
-#'
-#' # Calibrated matrix of selection proportions
-#' prop <- SelectionProportions(stab)
-#'
-#' # User-defined parameters
-#' myids <- matrix(c(20, 10), nrow = 1)
-#' stab$Lambda[myids[1], 1] # corresponding penalty
-#' stab$params$pi_list[myids[2]] # corresponding threshold
-#' prop <- SelectionProportions(stab, argmax_id = myids)
-#'
-#'
-#' ## Dimensionality reduction
-#'
-#' # Data simulation (continuous outcomes)
-#' set.seed(1)
-#' simul <- SimulateRegression(n = 50, pk = c(5, 5, 5), family = "gaussian")
-#' x <- simul$xdata
-#' y <- simul$ydata
-#'
-#' # Sparse PLS
-#' stab <- BiSelection(
-#'   xdata = x, ydata = y,
-#'   family = "gaussian", ncomp = 3,
-#'   LambdaX = 1:(ncol(x) - 1),
-#'   implementation = SparsePLS
-#' )
-#'
-#' # Calibrated selection proportions per component
-#' prop <- SelectionProportions(stab)
-#' }
-#'
-#' @export
-SelectionProportions <- function(stability, argmax_id = NULL) {
-  out <- NULL
-
-  if (inherits(stability, "graphical_model")) {
-    out <- SelectionProportionsGraphical(stability = stability, argmax_id = argmax_id)
-  }
-  if (inherits(stability, "variable_selection")) {
-    out <- SelectionProportionsRegression(stability = stability, argmax_id = argmax_id)
-  }
-  if (inherits(stability, "bi_selection")) {
-    out <- stability$selpropX
-  }
-
-  return(out)
-}
-
-
-#' Selection proportions (graphical model)
-#'
-#' Extracts the selection proportions of the (calibrated) stability selection
-#' model.
-#'
-#' @inheritParams Adjacency
-#' @param stability output of \code{\link{GraphicalModel}}.
-#'
-#' @return A symmetric matrix.
-#'
-#' @keywords internal
-SelectionProportionsGraphical <- function(stability, argmax_id = NULL) {
-  A <- matrix(0, ncol = ncol(stability$selprop), nrow = nrow(stability$selprop))
-  bigblocks <- BlockMatrix(stability$params$pk)
-  if (is.null(argmax_id)) {
-    argmax_id <- ArgmaxId(stability)
-  }
-  for (block_id in 1:ncol(stability$Lambda)) {
-    A_block <- stability$selprop[, , argmax_id[block_id, 1]]
-    A_block[lower.tri(A_block)] <- 0
-    A_block <- A_block + t(A_block) # for symmetry
-    if (length(stability$params$pk) > 1) {
-      A_block[bigblocks != block_id] <- 0
-    }
-    A <- A + A_block
-  }
-  return(A)
-}
-
-
-#' Selection proportions (variable selection)
-#'
-#' Extracts the selection proportions of the (calibrated) stability selection
-#' model.
-#'
-#' @inheritParams Adjacency
-#' @param stability output of \code{\link{VariableSelection}}.
-#'
-#' @return A vector of selection proportions.
-#'
-#' @keywords internal
-SelectionProportionsRegression <- function(stability, argmax_id = NULL) {
-  if (is.null(argmax_id)) {
-    argmax_id <- ArgmaxId(stability)
-  }
-  m <- stability$selprop[argmax_id[1], ]
-  return(m)
 }
 
 
@@ -634,11 +316,89 @@ AggregatedEffects <- function(stability, lambda_id = NULL, side = "X", comp = 1,
 }
 
 
+#' Stable attribute weights
+#'
+#' Creates a boxplots of the distribution of (calibrated) median attribute
+#' weights obtained from the COSA algorithm across the subsampling iterations.
+#' See examples in \code{\link{Clustering}}.
+#'
+#' @inheritParams Adjacency
+#' @param stability output of \code{\link{Clustering}}.
+#' @param at coordinates along the x-axis (more details in
+#'   \code{\link[graphics]{boxplot}}).
+#' @param col optional vector of colours.
+#' @param boxwex box width (more details in \code{\link[graphics]{boxplot}}).
+#' @param xlab label of the x-axis.
+#' @param ylab label of the y-axis.
+#' @param cex.lab font size for labels.
+#' @param las orientation of labels on the x-axis (see
+#'   \code{\link[graphics]{par}}).
+#' @param frame logical indicating if the box around the plot should be drawn
+#'   (more details in \code{\link[graphics]{boxplot}}).
+#' @param add logical indicating if the boxplot should be added to the current
+#'   plot.
+#' @param ... additional parameters passed to \code{\link[graphics]{boxplot}}).
+#'
+#' @return A boxplot.
+#'
+#' @seealso \code{\link{Clustering}}
+#'
+#' @export
+WeightBoxplot <- function(stability, at = NULL, argmax_id = NULL,
+                          col = NULL, boxwex = 0.3,
+                          xlab = "", ylab = "Weight", cex.lab = 1.5,
+                          las = 3, frame = "F", add = FALSE, ...) {
+  # Checking input
+  if (all(is.na(stability$Lambda))) {
+    stop("Invalid input for argument 'stability'. This function can only be used for weighted clustering.")
+  }
+
+  # Defining default colours
+  if (is.null(col)) {
+    col <- "navy"
+  }
+
+  # Extracting ID of calibrated parameters
+  if (is.null(argmax_id)) {
+    argmax_id <- ArgmaxId(stability)
+  }
+
+  # Extracting weights
+  y <- stability$Beta[argmax_id[1], , ]
+
+  # Removing zero weights (for sparse methods)
+  y[which(y == 0)] <- NA
+
+  xaxt <- "s"
+  if (is.null(at)) {
+    x <- 1:nrow(y)
+  } else {
+    x <- at
+    xaxt <- "n"
+  }
+
+  # Showing the distribution over nonzero weights
+  graphics::boxplot(t(y),
+    at = x, xlim = range(x),
+    col = col, boxcol = col, whiskcol = col,
+    staplecol = col,
+    whisklty = 1, range = 0, las = las, add = add,
+    xlab = xlab, ylab = ylab, cex.lab = cex.lab, frame = frame,
+    boxwex = boxwex, xaxt = xaxt, ...
+  )
+  if (!is.null(at)) {
+    graphics::axis(side = 1, at = graphics::axTicks(side = 1))
+  }
+}
+
+
 #' Calibration plot
 #'
 #' Creates a plot showing the stability score as a function of the parameter(s)
 #' controlling the level of sparsity in the underlying feature selection
-#' algorithm and/or the threshold in selection proportions.
+#' algorithm and/or the threshold in selection proportions. See examples in
+#' \code{\link{VariableSelection}}, \code{\link{GraphicalModel}},
+#' \code{\link{Clustering}} and \code{\link{BiSelection}}.
 #'
 #' @param stability output of \code{\link{VariableSelection}},
 #'   \code{\link{GraphicalModel}} or \code{\link{BiSelection}}.
@@ -656,7 +416,8 @@ AggregatedEffects <- function(stability, lambda_id = NULL, side = "X", comp = 1,
 #'   drawn. Possible values include: \code{"o"} (default, the box is drawn), or
 #'   \code{"n"} (no box).
 #' @param lines logical indicating if the points should be linked by lines. Only
-#'   used if \code{stability} is the output of \code{\link{BiSelection}}.
+#'   used if \code{stability} is the output of \code{\link{BiSelection}} or
+#'   \code{\link{Clustering}}.
 #' @param lty line type, as in \code{\link[graphics]{par}}. Only used if
 #'   \code{stability} is the output of \code{\link{BiSelection}}.
 #' @param lwd line width, as in \code{\link[graphics]{par}}. Only used if
@@ -703,63 +464,10 @@ AggregatedEffects <- function(stability, lambda_id = NULL, side = "X", comp = 1,
 #'   which they are represented. Only used if \code{stability} is the output of
 #'   \code{\link{BiSelection}}.
 #'
-#' @return a calibration plot.
+#' @return A calibration plot.
 #'
-#' @family calibration functions
 #' @seealso \code{\link{VariableSelection}}, \code{\link{GraphicalModel}},
-#'   \code{\link{BiSelection}}
-#'
-#' @examples
-#' \donttest{
-#' oldpar <- par(no.readonly = TRUE)
-#' par(mar = c(7, 5, 7, 6))
-#'
-#' ## Regression model
-#'
-#' # Data simulation
-#' set.seed(1)
-#' simul <- SimulateGraphical(pk = 20, nu_within = 0.1)
-#'
-#' # Stability selection
-#' stab <- GraphicalModel(xdata = simul$data)
-#'
-#' # Calibration heatmap
-#' CalibrationPlot(stab)
-#'
-#' # User-defined colours
-#' CalibrationPlot(stab,
-#'   col = c("ivory", "blue", "black"),
-#'   legend_length = 31,
-#'   legend_range = c(0, 2500)
-#' )
-#'
-#'
-#' ## Dimensionality reduction
-#'
-#' # Data simulation
-#' set.seed(1)
-#' simul <- SimulateRegression(n = 50, pk = 15, q = 3, family = "gaussian")
-#' x <- simul$xdata
-#' y <- simul$ydata
-#'
-#' # sPLS: sparsity on both X and Y
-#' stab <- BiSelection(
-#'   xdata = x, ydata = y,
-#'   family = "gaussian", ncomp = 3,
-#'   LambdaX = 1:(ncol(x) - 1),
-#'   LambdaY = 1:(ncol(y) - 1),
-#'   implementation = SparsePLS,
-#'   n_cat = 2
-#' )
-#'
-#' # Calibration plot
-#' CalibrationPlot(stab)
-#'
-#' # Other ordering of parameters
-#' CalibrationPlot(stab, params = c("nx", "ny"))
-#'
-#' par(oldpar)
-#' }
+#'   \code{\link{Clustering}}, \code{\link{BiSelection}}
 #'
 #' @export
 CalibrationPlot <- function(stability, block_id = NULL,

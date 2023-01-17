@@ -43,61 +43,17 @@
 #' \donttest{
 #' # Variable selection model
 #' set.seed(1)
-#' simul <- SimulateRegression(pk = 30)
+#' simul <- SimulateRegression(pk = 30, nu_xy = 0.5)
 #' stab <- VariableSelection(xdata = simul$xdata, ydata = simul$ydata)
-#' perf <- SelectionPerformance(theta = stab, theta_star = simul)
-#' perf <- SelectionPerformance(
+#'
+#' # Selection performance
+#' SelectionPerformance(theta = stab, theta_star = simul)
+#'
+#' # Alternative formulation
+#' SelectionPerformance(
 #'   theta = SelectedVariables(stab),
 #'   theta_star = simul$theta
-#' ) # alternative formulation
-#'
-#' # Single-block graphical model
-#' set.seed(1)
-#' simul <- SimulateGraphical(pk = 30)
-#' stab <- GraphicalModel(xdata = simul$data)
-#' perf <- SelectionPerformance(theta = stab, theta_star = simul)
-#' perf <- SelectionPerformance(
-#'   theta = stab, theta_star = simul,
-#'   cor = cor(simul$data), thr = 0.5
 #' )
-#' perf <- SelectionPerformance(
-#'   theta = Adjacency(stab),
-#'   theta_star = simul$theta
-#' ) # alternative formulation
-#'
-#' # Multi-block graphical model
-#' set.seed(1)
-#' simul <- SimulateGraphical(pk = c(10, 10))
-#' stab <- GraphicalModel(xdata = simul$data, pk = c(10, 10), lambda_other_blocks = rep(0, 3))
-#' perf <- SelectionPerformance(theta = stab, theta_star = simul, pk = c(10, 10))
-#' perf <- SelectionPerformance(
-#'   theta = stab, theta_star = simul, pk = c(10, 10),
-#'   cor = cor(simul$data), thr = 0.5
-#' )
-#' perf <- SelectionPerformance(
-#'   theta = Adjacency(stab),
-#'   theta_star = simul$theta,
-#'   pk = c(10, 10)
-#' ) # alternative formulation
-#'
-#' # Sparse PLS model
-#' set.seed(1)
-#' simul <- SimulateRegression(n = 50, pk = 15, q = 3, family = "gaussian")
-#' x <- simul$xdata
-#' y <- simul$ydata
-#' stab <- BiSelection(
-#'   xdata = simul$xdata, ydata = simul$ydata,
-#'   family = "gaussian", ncomp = 3,
-#'   LambdaX = 1:(ncol(x) - 1),
-#'   LambdaY = 1:(ncol(y) - 1),
-#'   implementation = SparsePLS,
-#'   n_cat = 2
-#' )
-#' perf <- SelectionPerformance(theta = stab, theta_star = simul)
-#' perf <- SelectionPerformance(
-#'   theta = stab$selected,
-#'   theta_star = simul$theta
-#' ) # alternative formulation
 #' }
 #'
 #' @export
@@ -334,56 +290,6 @@ GraphComparison <- function(graph1, graph2,
 #'   theta_star = simul
 #' )
 #' plot(perfgraph)
-#'
-#' # Alternative formulation
-#' perfgraph <- SelectionPerformanceGraph(
-#'   theta = Adjacency(stab),
-#'   theta_star = simul$theta
-#' )
-#' plot(perfgraph)
-#'
-#' # User-defined colours/shapes
-#' perfgraph <- SelectionPerformanceGraph(
-#'   theta = stab, theta_star = simul,
-#'   col = c("forestgreen", "orange", "black"),
-#'   node_colour = "red", node_shape = "star"
-#' )
-#' plot(perfgraph)
-#' perfgraph <- SelectionPerformanceGraph(
-#'   theta = stab, theta_star = simul,
-#'   col = c("forestgreen", "orange", "black"), lty = c(4, 2, 3)
-#' )
-#' plot(perfgraph)
-#'
-#' # Using and re-formatting igraph object
-#' require(igraph)
-#' igraph::V(perfgraph)$size <- 10
-#' plot(perfgraph, layout = igraph::layout_with_kk(perfgraph))
-#'
-#' # Regression model
-#' set.seed(1)
-#' simul <- SimulateRegression(pk = 30)
-#' stab <- VariableSelection(xdata = simul$xdata, ydata = simul$ydata)
-#' perf <- SelectionPerformance(theta = stab, theta_star = simul)
-#' perf_graph <- SelectionPerformanceGraph(theta = stab, theta_star = simul)
-#' plot(perf_graph)
-#'
-#' # Sparse PLS model
-#' set.seed(1)
-#' simul <- SimulateRegression(n = 50, pk = 15, q = 3, family = "gaussian")
-#' x <- simul$xdata
-#' y <- simul$ydata
-#' stab <- BiSelection(
-#'   xdata = simul$xdata, ydata = simul$ydata,
-#'   family = "gaussian", ncomp = 3,
-#'   LambdaX = 1:(ncol(x) - 1),
-#'   LambdaY = 1:(ncol(y) - 1),
-#'   implementation = SparsePLS,
-#'   n_cat = 2
-#' )
-#' perf <- SelectionPerformance(theta = stab, theta_star = simul)
-#' perf_graph <- SelectionPerformanceGraph(theta = stab, theta_star = simul)
-#' plot(perf_graph)
 #' }
 #'
 #' @export
@@ -498,4 +404,92 @@ SelectionPerformanceSingle <- function(Asum, cor = NULL, thr = 0.5) {
       accuracy = accuracy, precision = precision, recall = recall, F1_score = F1_score
     ))
   }
+}
+
+
+#' Clustering performance
+#'
+#' Computes different metrics of clustering performance by comparing true and
+#' predicted co-membership. This function can only be used in simulation studies
+#' (i.e. when the true cluster membership is known).
+#'
+#' @param theta output from \code{\link{Clustering}}. Alternatively, it can be
+#'   the estimated co-membership matrix (see \code{\link{CoMembership}}).
+#' @param theta_star output from \code{\link{SimulateClustering}}.Alternatively,
+#'   it can be the true co-membership matrix (see \code{\link{CoMembership}}).
+#' @param ... additional arguments to be passed to \code{\link{Clusters}}.
+#'
+#' @return A matrix of selection metrics including:
+#'
+#'   \item{TP}{number of True Positives (TP)} \item{FN}{number of False
+#'   Negatives (TN)} \item{FP}{number of False Positives (FP)} \item{TN}{number
+#'   of True Negatives (TN)} \item{sensitivity}{sensitivity, i.e. TP/(TP+FN)}
+#'   \item{specificity}{specificity, i.e. TN/(TN+FP)} \item{accuracy}{accuracy,
+#'   i.e. (TP+TN)/(TP+TN+FP+FN)} \item{precision}{precision (p), i.e.
+#'   TP/(TP+FP)} \item{recall}{recall (r), i.e. TP/(TP+FN)}
+#'   \item{F1_score}{F1-score, i.e. 2*p*r/(p+r)} \item{rand}{Rand Index, i.e.
+#'   (TP+TN)/(TP+FP+TN+FN)} \item{ari}{Adjusted Rand Index (ARI), i.e.
+#'   2*(TP*TN-FP*FN)/((TP+FP)*(TN+FP)+(TP+FN)*(TN+FN))} \item{jaccard}{Jaccard
+#'   index, i.e. TP/(TP+FP+FN)}
+#'
+#' @family functions for model performance
+#'
+#' @examples
+#' \donttest{
+#' # Data simulation
+#' set.seed(1)
+#' simul <- SimulateClustering(
+#'   n = c(30, 30, 30), nu_xc = 1
+#' )
+#' plot(simul)
+#'
+#' # Consensus clustering
+#' stab <- Clustering(
+#'   xdata = simul$data, nc = 1:5
+#' )
+#'
+#' # Clustering performance
+#' ClusteringPerformance(stab, simul)
+#'
+#' # Alternative formulation
+#' ClusteringPerformance(
+#'   theta = CoMembership(Clusters(stab)),
+#'   theta_star = simul$theta
+#' )
+#' }
+#'
+#' @export
+ClusteringPerformance <- function(theta, theta_star, ...) {
+  # Re-formatting input theta
+  if (any(class(theta) %in% c("graphical_model", "clustering"))) {
+    theta <- Clusters(theta, ...)
+  }
+
+  # Re-formatting input theta_star
+  if (any(class(theta_star) %in% c("simulation_clustering"))) {
+    theta_star <- theta_star$theta
+  }
+
+  # Initialising unused parameters
+  cor <- NULL
+  thr <- 0.5
+
+  # Computing co-membership matrices
+  if (!is.matrix(theta)) {
+    theta <- CoMembership(theta)
+  }
+  if (!is.matrix(theta_star)) {
+    theta_star <- CoMembership(theta_star)
+  }
+
+  # Storing similarities/differences between estimated and true sets
+  Asum <- theta + 2 * theta_star
+
+  tmp <- SelectionPerformanceSingle(Asum, cor = cor, thr = thr)
+  rand <- (tmp$TP + tmp$TN) / (tmp$TP + tmp$FP + tmp$TN + tmp$FN)
+  ari <- 2 * ((tmp$TP * tmp$TN) - (tmp$FP * tmp$FN)) / ((tmp$TP + tmp$FP) * (tmp$TN + tmp$FP) + (tmp$TP + tmp$FN) * (tmp$TN + tmp$FN))
+  jaccard <- (tmp$TP) / (tmp$TP + tmp$FP + tmp$FN)
+  # ami <- aricode::AMI(c1 = as.vector(theta), c2 = as.vector(theta_star))
+  tmp <- cbind(tmp, rand = rand, ari = ari, jaccard = jaccard)
+  return(tmp)
 }

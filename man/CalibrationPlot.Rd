@@ -63,7 +63,8 @@ drawn. Possible values include: \code{"o"} (default, the box is drawn), or
 \code{"n"} (no box).}
 
 \item{lines}{logical indicating if the points should be linked by lines. Only
-used if \code{stability} is the output of \code{\link{BiSelection}}.}
+used if \code{stability} is the output of \code{\link{BiSelection}} or
+\code{\link{Clustering}}.}
 
 \item{lty}{line type, as in \code{\link[graphics]{par}}. Only used if
 \code{stability} is the output of \code{\link{BiSelection}}.}
@@ -133,75 +134,16 @@ which they are represented. Only used if \code{stability} is the output of
 \code{\link{BiSelection}}.}
 }
 \value{
-a calibration plot.
+A calibration plot.
 }
 \description{
 Creates a plot showing the stability score as a function of the parameter(s)
 controlling the level of sparsity in the underlying feature selection
-algorithm and/or the threshold in selection proportions.
-}
-\examples{
-\donttest{
-oldpar <- par(no.readonly = TRUE)
-par(mar = c(7, 5, 7, 6))
-
-## Regression model
-
-# Data simulation
-set.seed(1)
-simul <- SimulateGraphical(pk = 20, nu_within = 0.1)
-
-# Stability selection
-stab <- GraphicalModel(xdata = simul$data)
-
-# Calibration heatmap
-CalibrationPlot(stab)
-
-# User-defined colours
-CalibrationPlot(stab,
-  col = c("ivory", "blue", "black"),
-  legend_length = 31,
-  legend_range = c(0, 2500)
-)
-
-
-## Dimensionality reduction
-
-# Data simulation
-set.seed(1)
-simul <- SimulateRegression(n = 50, pk = 15, q = 3, family = "gaussian")
-x <- simul$xdata
-y <- simul$ydata
-
-# sPLS: sparsity on both X and Y
-stab <- BiSelection(
-  xdata = x, ydata = y,
-  family = "gaussian", ncomp = 3,
-  LambdaX = 1:(ncol(x) - 1),
-  LambdaY = 1:(ncol(y) - 1),
-  implementation = SparsePLS,
-  n_cat = 2
-)
-
-# Calibration plot
-CalibrationPlot(stab)
-
-# Other ordering of parameters
-CalibrationPlot(stab, params = c("nx", "ny"))
-
-par(oldpar)
-}
-
+algorithm and/or the threshold in selection proportions. See examples in
+\code{\link{VariableSelection}}, \code{\link{GraphicalModel}},
+\code{\link{Clustering}} and \code{\link{BiSelection}}.
 }
 \seealso{
 \code{\link{VariableSelection}}, \code{\link{GraphicalModel}},
-  \code{\link{BiSelection}}
-
-Other calibration functions: 
-\code{\link{Adjacency}()},
-\code{\link{ArgmaxId}()},
-\code{\link{Argmax}()},
-\code{\link{SelectedVariables}()},
-\code{\link{SelectionProportions}()}
+  \code{\link{Clustering}}, \code{\link{BiSelection}}
 }
-\concept{calibration functions}

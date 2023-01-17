@@ -8,20 +8,22 @@
 [![CRAN
 status](https://www.r-pkg.org/badges/version/sharp)](https://CRAN.R-project.org/package=sharp)
 [![CRAN RStudio mirror
-downloads](https://cranlogs.r-pkg.org/badges/grand-total/sharp?color=blue)](https://r-pkg.org/pkg/sharp)
+downloads](https://cranlogs.r-pkg.org/badges/last-month/sharp?color=blue)](https://r-pkg.org/pkg/sharp)
 ![GitHub last
 commit](https://img.shields.io/github/last-commit/barbarabodinier/sharp?logo=GitHub&style=flat-square)
 <!-- badges: end -->
 
 ## Description
 
-> In stability selection, resampling techniques are used to enhance the
-> reliability of the results. In this package, hyper-parameters are
-> calibrated by maximising model stability, which is measured by the
-> negative log-likelihood under the null hypothesis that all selection
-> probabilities are identical. Functions are readily implemented for the
-> use of LASSO regression, sparse PCA, sparse (group) PLS or graphical
-> LASSO.
+> In stability selection and consensus clustering, resampling techniques
+> are used to enhance the reliability of the results. In this package,
+> hyper-parameters are calibrated by maximising model stability, which
+> is measured by the negative log-likelihood under the null hypothesis
+> that all selection (or co-membership) probabilities are identical.
+> Functions are readily implemented for the use of LASSO regression,
+> sparse PCA, sparse (group) PLS or graphical LASSO in stability
+> selection, and hierarchical clustering, partitioning around medoids, K
+> means or Gaussian mixture models in consensus clustering.
 
 ## Installation
 
@@ -36,6 +38,7 @@ The development version can be installed from
 [GitHub](https://github.com/):
 
 ``` r
+remotes::install_github("barbarabodinier/fake")
 remotes::install_github("barbarabodinier/sharp")
 ```
 
@@ -57,6 +60,11 @@ y_reg <- data_reg$ydata
 set.seed(1)
 data_ggm <- SimulateGraphical(n = 200, pk = 20)
 x_ggm <- data_ggm$data
+
+# Dataset for clustering
+set.seed(1)
+data_clust <- SimulateClustering(n = c(10, 10, 10))
+x_clust <- data_clust$data
 ```
 
 Check out the R package
@@ -87,6 +95,17 @@ stab_ggm <- GraphicalModel(xdata = x_ggm)
 Adjacency(stab_ggm)
 ```
 
+### Clustering
+
+Consensus clustering is done using hierarchical clustering as
+implemented in the R package
+[**stats**](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/00Index.html).
+
+``` r
+stab_clust <- Clustering(xdata = x_clust)
+Clusters(stab_clust)
+```
+
 ## Extraction and visualisation of the results
 
 It is strongly recommended to check the calibration of the
@@ -94,6 +113,26 @@ hyper-parameters using the function `CalibrationPlot()` on the output
 from any of the main functions listed above. The functions `print()`,
 `summary()` and `plot()` can also be used on the outputs from the main
 functions.
+
+## Parametrisation
+
+Stability selection and consensus clustering can theoretically be done
+by aggregating the results from any selection (or clustering) algorithm
+on subsamples of the data. The choice of the underlying algorithm to use
+is specified in argument `implementation` in the main functions.
+Consensus clustering using partitioning around medoids, K means or
+Gaussian mixture models are also supported in **sharp**:
+
+``` r
+stab_clust <- Clustering(xdata = x_clust, implementation = PAMClustering)
+stab_clust <- Clustering(xdata = x_clust, implementation = KMeansClustering)
+stab_clust <- Clustering(xdata = x_clust, implementation = GMMClustering)
+```
+
+Other algorithms can be used by defining a wrapper function to be called
+in `implementation`. Check out the documentation of `GraphicalModel()`
+for an example using a shrunk estimate of the partial correlation
+instead of the graphical LASSO.
 
 ## References
 
@@ -107,3 +146,6 @@ functions.
 - Nicolai Meinshausen and Peter Bühlmann. Stability selection. (2010)
   Journal of the Royal Statistical Society: Series B (Statistical
   Methodology). [link](https://doi.org/10.1111/j.1467-9868.2010.00740.x)
+
+- Stefano Monti, Pablo Tamayo, Jill Mesirov and Todd Golub. (2003)
+  Machine Learning. [link](https://doi.org/10.1023/A:1023949509487)
