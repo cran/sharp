@@ -217,7 +217,11 @@ plot.clustering <- function(x,
 
   # Defining axis colours if not provided
   if (is.null(col.axis)) {
-    col.axis <- randomcoloR::distinctColorPalette(k = length(unique(theta_star)))
+    if (requireNamespace("randomcoloR", quietly = TRUE)) {
+      col.axis <- randomcoloR::distinctColorPalette(k = length(unique(theta_star)))
+    } else {
+      col.axis <- grDevices::rainbow(n = length(unique(theta_star)), v = 0.8)
+    }
   }
 
   # Adding axes and ticks

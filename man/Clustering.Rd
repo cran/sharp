@@ -35,9 +35,10 @@ not provided, it is set to \code{seq(1, tau*nrow(xdata))}.}
 \code{\link[dbscan]{dbscan}}. Only used if
 \code{implementation=DBSCANClustering}.}
 
-\item{Lambda}{vector of penalty parameters. Only used if
-\code{implementation=HierarchicalClustering}
-or\code{implementation=PAMClustering}.}
+\item{Lambda}{vector of penalty parameters for weighted distance calculation.
+Only used if \code{implementation=HierarchicalClustering},
+\code{implementation=PAMClustering}, or
+\code{implementation=DBSCANClustering}.}
 
 \item{K}{number of resampling iterations.}
 
@@ -46,8 +47,9 @@ or\code{implementation=PAMClustering}.}
 \item{seed}{value of the seed to initialise the random number generator and
 ensure reproducibility of the results (see \code{\link[base]{set.seed}}).}
 
-\item{n_cat}{number of categories used to compute the stability score.
-Possible values are 2 or 3.}
+\item{n_cat}{computation options for the stability score. Default is
+\code{NULL} to use the score based on a z test. Other possible values are 2
+or 3 to use the score based on the negative log-likelihood.}
 
 \item{implementation}{function to use for clustering. Possible functions
 include \code{\link{HierarchicalClustering}} (hierarchical clustering),
@@ -129,12 +131,9 @@ In consensus clustering, a clustering algorithm is applied on
   clustering method using \code{(1-coprop)} as distance (see
   \link{Clusters}).
 
-  The number of (stable) clusters is calibrated by maximisation of the
-  consensus score (see \link{ConsensusScore}) calculated from the observed,
-  most stable, and most unstable likelihoods:
-
-  \eqn{S(\lambda, n_C) = [ log(L_u(\lambda, n_C)) - log(L_o(\lambda, n_C)) ]
-  / [ log(L_u(\lambda, n_C)) - log(L_s(\lambda, n_C)) ]}
+  These parameters can be calibrated by maximisation of a stability score
+  (see \code{\link{ConsensusScore}}) calculated under the null hypothesis of
+  equiprobability of co-membership.
 
   It is strongly recommended to examine the calibration plot (see
   \code{\link{CalibrationPlot}}) to check that there is a clear maximum. The
@@ -194,7 +193,7 @@ if (requireNamespace("rCOSA", quietly = TRUE)) {
   \insertRef{ConsensusClustering}{sharp}
 }
 \seealso{
-\code{\link{Resample}}, \code{\link{StabilityScore}},
+\code{\link{Resample}}, \code{\link{ConsensusScore}},
   \code{\link{HierarchicalClustering}}, \code{\link{PAMClustering}},
   \code{\link{KMeansClustering}}, \code{\link{GMMClustering}}
 

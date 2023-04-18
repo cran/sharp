@@ -54,17 +54,22 @@
 #'   \code{group_y}.
 #'
 #'   These parameters can be calibrated by maximisation of a stability score
-#'   (see \code{\link{StabilityScore}}) derived from the likelihood under the
-#'   assumption of uniform (uninformative) selection:
-#'
-#'   \eqn{S_{\lambda, \pi} = -log(L_{\lambda, \pi})}
+#'   (see \code{\link{ConsensusScore}} if \code{n_cat=NULL} or
+#'   \code{\link{StabilityScore}} otherwise) calculated under the null
+#'   hypothesis of equiprobability of selection.
 #'
 #'   It is strongly recommended to examine the calibration plot carefully to
 #'   check that the grids of parameters \code{Lambda} and \code{pi_list} do not
 #'   restrict the calibration to a region that would not include the global
 #'   maximum (see \code{\link{CalibrationPlot}}). In particular, the grid
 #'   \code{Lambda} may need to be extended when the maximum stability is
-#'   observed on the left or right edges of the calibration plot.
+#'   observed on the left or right edges of the calibration heatmap. In some
+#'   instances, multiple peaks of stability score can be observed. Simulation
+#'   studies suggest that the peak corresponding to the largest number of
+#'   selected features tend to give better selection performances. This is not
+#'   necessarily the highest peak (which is automatically retained by the
+#'   functions in this package). The user can decide to manually choose another
+#'   peak.
 #'
 #'   To control the expected number of False Positives (Per Family Error Rate)
 #'   in the results, a threshold \code{PFER_thr} can be specified. The
@@ -240,8 +245,8 @@
 BiSelection <- function(xdata, ydata = NULL, group_x = NULL, group_y = NULL,
                         LambdaX = NULL, LambdaY = NULL, AlphaX = NULL, AlphaY = NULL,
                         ncomp = 1, scale = TRUE,
-                        pi_list = seq(0.6, 0.9, by = 0.01),
-                        K = 100, tau = 0.5, seed = 1, n_cat = 3,
+                        pi_list = seq(0.01, 0.99, by = 0.01),
+                        K = 100, tau = 0.5, seed = 1, n_cat = NULL,
                         family = "gaussian", implementation = SparsePLS,
                         resampling = "subsampling", cpss = FALSE,
                         PFER_method = "MB", PFER_thr = Inf, FDP_thr = Inf,
@@ -501,10 +506,22 @@ BiSelection <- function(xdata, ydata = NULL, group_x = NULL, group_y = NULL,
               if (any(mytmp != 1)) {
                 # Computing stability score for Y variables
                 if (as.character(substitute(implementation)) == "GroupPLS") {
-                  hat_pi <- stab$params$pi_list[which.max(StabilityScore(mytmp,
-                    pi_list = stab$params$pi_list, K = K,
-                    group = NAToNULL(group_y)
-                  ))]
+                  # Using group penalisation (extracting one per group)
+                  mytmp <- mytmp[cumsum(NAToNULL(group_y))]
+                }
+
+                # Calculating the score for different thresholds pi
+                if (is.null(n_cat)) {
+                  tmpscore <- rep(NA, length(stab$params$pi_list))
+                  for (k in 1:length(stab$params$pi_list)) {
+                    theta <- ifelse(mytmp >= stab$params$pi_list[k], yes = 1, no = 0)
+                    tmpscore[k] <- ConsensusScore(prop = mytmp, K = K, theta = theta)
+                  }
+                  hat_pi <- NA
+                  if (any(!is.na(tmpscore))) {
+                    myid <- which(tmpscore == max(tmpscore, na.rm = TRUE))
+                    hat_pi <- stab$params$pi_list[max(myid)]
+                  }
                 } else {
                   hat_pi <- stab$params$pi_list[which.max(StabilityScore(mytmp, pi_list = stab$params$pi_list, K = K))]
                 }

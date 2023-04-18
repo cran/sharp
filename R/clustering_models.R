@@ -31,9 +31,9 @@
 #'
 #' @family clustering algorithms
 #'
-#' @references \insertRef{COSA}{sharp}
+#' @references \insertRef{rCOSA}{sharp}
 #'
-#'   \insertRef{rCOSA}{sharp}
+#'   \insertRef{COSA}{sharp}
 #'
 #' @examples
 #'
@@ -228,9 +228,9 @@ HierarchicalClustering <- function(xdata, nc = NULL, Lambda = NULL,
 #'
 #' @family clustering algorithms
 #'
-#' @references \insertRef{COSA}{sharp}
+#' @references \insertRef{rCOSA}{sharp}
 #'
-#' \insertRef{rCOSA}{sharp}
+#'   \insertRef{COSA}{sharp}
 #'
 #' @examples
 #'
@@ -411,9 +411,9 @@ PAMClustering <- function(xdata, nc = NULL, Lambda = NULL,
 #'
 #' @family clustering algorithms
 #'
-#' @references \insertRef{COSA}{sharp}
+#' @references \insertRef{rCOSA}{sharp}
 #'
-#'   \insertRef{rCOSA}{sharp}
+#'   \insertRef{COSA}{sharp}
 #'
 #' @examples
 #'
@@ -706,7 +706,7 @@ GMMClustering <- function(xdata, nc = NULL, scale = TRUE, ...) {
   tmp_extra_args <- MatchingArguments(extra_args = extra_args, FUN = mclust::Mclust)
   tmp_extra_args <- tmp_extra_args[!names(tmp_extra_args) %in% c("data", "G", "verbose")]
 
-  # Running k-means clustering
+  # Running gaussian mixture model
   for (k in 1:nrow(nc)) {
     if (nc[k, 1] == 1) {
       adjacency[, , k] <- CoMembership(groups = rep(1, nrow(xdata)))

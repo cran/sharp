@@ -169,7 +169,6 @@ PLS <- function(xdata, ydata,
   }
   rownames(selectedY) <- colnames(ydata)
   colnames(selectedY) <- paste0("comp", 1:ncomp)
-  print(selectedY)
 
   # Initialisation
   Emat <- scale(xdata, center = TRUE, scale = scale)
@@ -207,7 +206,6 @@ PLS <- function(xdata, ydata,
 
     # Extracting the stably selected outcomes
     idsY <- rownames(selectedY)[which(selectedY[, comp] == 1)]
-    print(idsY)
     if (length(idsY) > 0) {
       Fmat_selected <- Fmat[, idsY, drop = FALSE]
     } else {
@@ -791,17 +789,6 @@ SparseGroupPLS <- function(xdata, ydata, family = "gaussian", group_x, group_y =
 #'   xdata = x, ydata = y, Lambda = 1, family = "gaussian",
 #'   group_x = c(10, 15, 25),
 #'   group_y = c(2, 1), keepY = 1
-#' )
-#'
-#' ## Group PLS-DA
-#' # Data simulation
-#' set.seed(1)
-#' simul <- SimulateRegression(n = 100, pk = 50, family = "binomial")
-#'
-#' # Running sgPLS-DA with 1 group and sparsity of 0.9
-#' mypls <- GroupPLS(
-#'   xdata = simul$xdata, ydata = simul$ydata, Lambda = 1, family = "binomial",
-#'   group_x = c(10, 15, 25), test = 0
 #' )
 #' @export
 GroupPLS <- function(xdata, ydata, family = "gaussian", group_x, group_y = NULL,

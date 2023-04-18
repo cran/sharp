@@ -4,6 +4,7 @@
 #' \code{implementation}. This function is not using stability.
 #'
 #' @inheritParams VariableSelection
+#' @param scale logical indicating if the predictor data should be scaled.
 #' @param ... additional parameters passed to the function provided in
 #'   \code{implementation}.
 #'
@@ -41,7 +42,7 @@
 #' str(mylasso)
 #' @export
 SelectionAlgo <- function(xdata, ydata = NULL,
-                          Lambda, group_x = NULL,
+                          Lambda, group_x = NULL, scale = TRUE,
                           family = NULL,
                           implementation = PenalisedRegression, ...) {
   # Making sure none of the variables has a null standard deviation
@@ -56,10 +57,23 @@ SelectionAlgo <- function(xdata, ydata = NULL,
     }
   }
 
+  # Scaling the predictor data
+  if (scale) {
+    xdata <- scale(xdata)
+  }
+
   # Applying user-defined function for variable selection
   mybeta <- do.call(implementation, args = list(xdata = xdata, ydata = ydata, Lambda = Lambda, group_x = group_x, family = family, ...))
   selected <- mybeta$selected
   beta_full <- mybeta$beta_full
+
+  # Checking row and column names
+  if (is.null(rownames(selected)) | is.null(rownames(beta_full))) {
+    rownames(selected) <- rownames(beta_full) <- paste0("s", seq(0, nrow(beta_full) - 1))
+  }
+  if (is.null(colnames(selected)) | is.null(colnames(beta_full))) {
+    colnames(selected) <- colnames(beta_full) <- paste0("coef", seq(1, ncol(beta_full)))
+  }
 
   # Setting the beta coefficient to zero for predictors with always the same value (null standard deviation)
   if (!is.infinite(selected[1])) {

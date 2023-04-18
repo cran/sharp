@@ -21,9 +21,10 @@ CheckInputClustering(
 \arguments{
 \item{xdata}{data matrix with observations as rows and variables as columns.}
 
-\item{Lambda}{vector of penalty parameters. Only used if
-\code{implementation=HierarchicalClustering}
-or\code{implementation=PAMClustering}.}
+\item{Lambda}{vector of penalty parameters for weighted distance calculation.
+Only used if \code{implementation=HierarchicalClustering},
+\code{implementation=PAMClustering}, or
+\code{implementation=DBSCANClustering}.}
 
 \item{K}{number of resampling iterations.}
 
@@ -32,8 +33,9 @@ or\code{implementation=PAMClustering}.}
 \item{seed}{value of the seed to initialise the random number generator and
 ensure reproducibility of the results (see \code{\link[base]{set.seed}}).}
 
-\item{n_cat}{number of categories used to compute the stability score.
-Possible values are 2 or 3.}
+\item{n_cat}{computation options for the stability score. Default is
+\code{NULL} to use the score based on a z test. Other possible values are 2
+or 3 to use the score based on the negative log-likelihood.}
 
 \item{implementation}{function to use for clustering. Possible functions
 include \code{\link{HierarchicalClustering}} (hierarchical clustering),

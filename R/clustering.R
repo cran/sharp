@@ -10,9 +10,10 @@
 #' @inheritParams VariableSelection
 #' @param xdata data matrix with observations as rows and variables as columns.
 #' @param tau subsample size.
-#' @param Lambda vector of penalty parameters. Only used if
-#'   \code{implementation=HierarchicalClustering}
-#'   or\code{implementation=PAMClustering}.
+#' @param Lambda vector of penalty parameters for weighted distance calculation.
+#'   Only used if \code{implementation=HierarchicalClustering},
+#'   \code{implementation=PAMClustering}, or
+#'   \code{implementation=DBSCANClustering}.
 #' @param nc matrix of parameters controlling the number of clusters in the
 #'   underlying algorithm specified in \code{implementation}. If \code{nc} is
 #'   not provided, it is set to \code{seq(1, tau*nrow(xdata))}.
@@ -49,12 +50,9 @@
 #'   clustering method using \code{(1-coprop)} as distance (see
 #'   \link{Clusters}).
 #'
-#'   The number of (stable) clusters is calibrated by maximisation of the
-#'   consensus score (see \link{ConsensusScore}) calculated from the observed,
-#'   most stable, and most unstable likelihoods:
-#'
-#'   \eqn{S(\lambda, n_C) = [ log(L_u(\lambda, n_C)) - log(L_o(\lambda, n_C)) ]
-#'   / [ log(L_u(\lambda, n_C)) - log(L_s(\lambda, n_C)) ]}
+#'   These parameters can be calibrated by maximisation of a stability score
+#'   (see \code{\link{ConsensusScore}}) calculated under the null hypothesis of
+#'   equiprobability of co-membership.
 #'
 #'   It is strongly recommended to examine the calibration plot (see
 #'   \code{\link{CalibrationPlot}}) to check that there is a clear maximum. The
@@ -91,7 +89,7 @@
 #'
 #' @family stability functions
 #'
-#' @seealso \code{\link{Resample}}, \code{\link{StabilityScore}},
+#' @seealso \code{\link{Resample}}, \code{\link{ConsensusScore}},
 #'   \code{\link{HierarchicalClustering}}, \code{\link{PAMClustering}},
 #'   \code{\link{KMeansClustering}}, \code{\link{GMMClustering}}
 #'
@@ -428,20 +426,30 @@ SerialClustering <- function(xdata, nc, eps, Lambda,
 
   # Imputation of missing values (accounting for the fact that 2 items potentially never get picked together)
   if (any(is.na(bigstab_obs))) {
-    warning("Missing values in consensus matrix. These have been imputed using knn imputation. Consider increasing the number of subsamples 'K'.")
+    warning("Missing values in consensus matrix. These have been set to zero by default. Consider increasing the number of subsamples 'K'.")
     for (i in 1:dim(bigstab_obs)[3]) {
-      bigstab_obs[, , i] <- impute::impute.knn(bigstab_obs[, , i])$data
+      if (any(is.na(bigstab_obs[, , i]))) {
+        tmpmat <- bigstab_obs[, , i]
+        tmpmat[which(is.na(tmpmat))] <- 0
+        bigstab_obs[, , i] <- tmpmat
+      }
     }
   }
 
   # Calibration of consensus clustering
   metrics2 <- matrix(NA, ncol = 1, nrow = dim(bigstab_obs)[3])
   for (i in 1:dim(bigstab_obs)[3]) {
+    # Clustering on the consensus matrix
+    sh_clust <- stats::hclust(stats::as.dist(1 - bigstab_obs[, , i]), method = linkage)
+
+    # Identifying stable clusters
+    theta <- CoMembership(groups = stats::cutree(sh_clust, k = ceiling(nc_full[i])))
+
+    # Calculating the consensus score
     metrics2[i] <- ConsensusScore(
-      coprop = bigstab_obs[, , i],
-      nc = ceiling(nc_full[i]),
-      K = K,
-      linkage = linkage
+      prop = (bigstab_obs[, , i])[upper.tri(bigstab_obs[, , i])],
+      K = sampled_pairs[upper.tri(sampled_pairs)],
+      theta = theta[upper.tri(theta)]
     )
   }
 

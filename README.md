@@ -18,12 +18,12 @@ commit](https://img.shields.io/github/last-commit/barbarabodinier/sharp?logo=Git
 > In stability selection and consensus clustering, resampling techniques
 > are used to enhance the reliability of the results. In this package,
 > hyper-parameters are calibrated by maximising model stability, which
-> is measured by the negative log-likelihood under the null hypothesis
-> that all selection (or co-membership) probabilities are identical.
-> Functions are readily implemented for the use of LASSO regression,
-> sparse PCA, sparse (group) PLS or graphical LASSO in stability
-> selection, and hierarchical clustering, partitioning around medoids, K
-> means or Gaussian mixture models in consensus clustering.
+> is measured under the null hypothesis that all selection (or
+> co-membership) probabilities are identical. Functions are readily
+> implemented for the use of LASSO regression, sparse PCA, sparse
+> (group) PLS or graphical LASSO in stability selection, and
+> hierarchical clustering, partitioning around medoids, K means or
+> Gaussian mixture models in consensus clustering.
 
 ## Installation
 
@@ -38,14 +38,14 @@ The development version can be installed from
 [GitHub](https://github.com/):
 
 ``` r
-remotes::install_github("barbarabodinier/fake")
 remotes::install_github("barbarabodinier/sharp")
 ```
 
 ## Example datasets
 
-To illustrate the use of the main functions implemented in **sharp**,
-three artificial datasets are created:
+To illustrate the use of the main functions implemented in
+[**sharp**](https://CRAN.R-project.org/package=sharp), three artificial
+datasets are created:
 
 ``` r
 library(sharp)
@@ -55,6 +55,11 @@ set.seed(1)
 data_reg <- SimulateRegression(n = 200, pk = 10)
 x_reg <- data_reg$xdata
 y_reg <- data_reg$ydata
+
+# Dataset for structural equation modelling
+set.seed(1)
+data_sem <- SimulateStructural(n = 200, pk = c(5, 2, 3))
+x_sem <- data_sem$data
 
 # Dataset for graphical modelling
 set.seed(1)
@@ -82,6 +87,18 @@ regression as implemented in the R package
 ``` r
 stab_reg <- VariableSelection(xdata = x_reg, ydata = y_reg)
 SelectedVariables(stab_reg)
+```
+
+### Structural equation modelling
+
+In a structural equation modelling context, stability selection is done
+using series of LASSO regressions as implemented in the R package
+[**glmnet**](https://CRAN.R-project.org/package=glmnet).
+
+``` r
+dag <- LayeredDAG(layers = c(5, 2, 3))
+stab_sem <- StructuralEquations(xdata = x_sem, adjacency = dag)
+LinearSystemMatrix(vect = Stable(stab_sem), adjacency = dag)
 ```
 
 ### Graphical modelling
@@ -121,7 +138,8 @@ by aggregating the results from any selection (or clustering) algorithm
 on subsamples of the data. The choice of the underlying algorithm to use
 is specified in argument `implementation` in the main functions.
 Consensus clustering using partitioning around medoids, K means or
-Gaussian mixture models are also supported in **sharp**:
+Gaussian mixture models are also supported in
+[**sharp**](https://CRAN.R-project.org/package=sharp):
 
 ``` r
 stab_clust <- Clustering(xdata = x_clust, implementation = PAMClustering)
@@ -138,14 +156,13 @@ instead of the graphical LASSO.
 
 - Barbara Bodinier, Sarah Filippi, Therese Haugdahl Nost, Julien Chiquet
   and Marc Chadeau-Hyam. Automated calibration for stability selection
-  in penalised regression and graphical models: a multi-OMICs network
-  application exploring the molecular response to tobacco
-  smoking. (2021) arXiv.
+  in penalised regression and graphical models. (2021) arXiv.
   [link](https://doi.org/10.48550/arXiv.2106.02521)
 
 - Nicolai Meinshausen and Peter Bühlmann. Stability selection. (2010)
   Journal of the Royal Statistical Society: Series B (Statistical
   Methodology). [link](https://doi.org/10.1111/j.1467-9868.2010.00740.x)
 
-- Stefano Monti, Pablo Tamayo, Jill Mesirov and Todd Golub. (2003)
-  Machine Learning. [link](https://doi.org/10.1023/A:1023949509487)
+- Stefano Monti, Pablo Tamayo, Jill Mesirov and Todd Golub. Consensus
+  clustering. (2003) Machine Learning.
+  [link](https://doi.org/10.1023/A:1023949509487)

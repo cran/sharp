@@ -4,65 +4,46 @@
 \alias{ConsensusScore}
 \title{Consensus score}
 \usage{
-ConsensusScore(coprop, nc, K = 100, linkage = "complete")
+ConsensusScore(prop, K, theta)
 }
 \arguments{
-\item{coprop}{consensus matrix obtained with \code{nc} clusters across
-\code{K} subsampling iterations.}
+\item{prop}{consensus matrix.}
 
-\item{nc}{number of clusters.}
+\item{K}{matrix of co-sampling counts.}
 
-\item{K}{number of subsampling iterations.}
-
-\item{linkage}{character string indicating the type of linkage used in
-hierarchical clustering to define the stable clusters. Possible values
-include \code{"complete"}, \code{"single"} and \code{"average"} (see
-argument \code{"method"} in \code{\link[stats]{hclust}} for a full list).}
+\item{theta}{consensus co-membership matrix.}
 }
 \value{
-A consensus score between 0 and 1.
+A consensus score.
 }
 \description{
-Computes the consensus score from the consensus matrix. The score measures
-how unlikely it is that the clustering procedure is uniform (i.e.
-uninformative) for a given combination of parameters.
+Computes the consensus score from the consensus matrix, matrix of co-sampling
+counts and consensus clusters. The score is a z statistic for the comparison
+of the co-membership proportions observed within and between the consensus
+clusters.
 }
 \details{
-Let \eqn{\Gamma(\lambda, G)} be the consensus matrix. We introduce
-  the matrix \eqn{H(\lambda, G)} of co-membership count corrected for the
-  subsampling procedure, defined as the integer part of \eqn{K
-  \Gamma(\lambda, G)}.
+To calculate the consensus score, the features are classified as being stably
+selected or not (in selection) or as being in the same consensus cluster or
+not (in clustering). In selection, the quantities \eqn{X_w} and \eqn{X_b} are
+defined as the sum of the selection counts for features that are stably
+selected or not, respectively. In clustering, the quantities \eqn{X_w} and
+\eqn{X_b} are defined as the sum of the co-membership counts for pairs of
+items in the same consensus cluster or in different consensus clusters,
+respectively.
 
-  Under the hypothesis of equiprobability of co-membership (instability), we
-  assume that the co-membership counts follow the same binomial distribution
-  for all pairs of items.
+Conditionally on this classification, and under the assumption that the
+selection (or co-membership) probabilities are the same for all features (or
+item pairs) in each of these two categories, the quantities \eqn{X_w} and
+\eqn{X_b} follow binomial distributions with probabilities \eqn{p_w} and
+\eqn{p_b}, respectively.
 
-  Given stable clusters \eqn{Z} and hyper-parameters \eqn{(\lambda, G)},
-  clustering stability is measured as the probability \eqn{p_{\lambda,
-  G}(H|z)} of observing co-membership counts in \eqn{H} that are at least as
-  high within clusters and at least as low between clusters under
-  equiprobability:
+In the most unstable situation, we suppose that all features (or item pairs)
+would have the same probability of being selected (or co-members). The
+consensus score is the z statistic from a z test where the null hypothesis is
+\eqn{p_w \leq p_b}.
 
-  \eqn{p_{\lambda, G}(H|Z) = \prod_{i < j} F(H_{ij})^{1_{Z_i=/=Z_j}}
-  \times (1 - F(H_{ij}))^{1_{Z_i=Z_j}}}
-
-  where \eqn{F(x)} is the cumulative probability function of the binomial
-  distribution with parameters \eqn{K} and probability \eqn{\gamma = N_c/N}
-  with \eqn{N_c} the number of stable co-members and \eqn{N} the number of
-  item pairs.
-
-  This probability is minimised at \eqn{H^s}, which corresponding to the most
-  stable clustering and is defined as:
-
-  \eqn{H^s_{ij} = K \times 1_{Z_i = Z_j}}
-
-  The consensus score is calculated as the following standardised
-  probability:
-
-  \eqn{S_c(\lambda, G) = (p_{\lambda, G}(H (\lambda, G)|Z)) / (p_{\lambda,
-  G}(H^s|Z))}
-
-  The consensus score increases with clustering stability.
+The consensus score increases with stability.
 }
 \examples{
 
@@ -81,9 +62,11 @@ stab <- Clustering(
 stab$Sc[3]
 
 # Calculating the consensus score
+theta <- CoMembership(Clusters(stab, argmax_id = 3))
 ConsensusScore(
-  coprop = stab$coprop[, , 3],
-  nc = stab$nc[3]
+  prop = (stab$coprop[, , 3])[upper.tri(stab$coprop[, , 3])],
+  K = stab$sampled_pairs[upper.tri(stab$sampled_pairs)],
+  theta = theta[upper.tri(theta)]
 )
 
 }

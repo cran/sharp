@@ -10,7 +10,7 @@ CheckParamRegression(
   K = 100,
   tau = 0.5,
   seed = 1,
-  n_cat = 3,
+  n_cat = NULL,
   family = "gaussian",
   implementation = PenalisedRegression,
   resampling = "subsampling",
@@ -28,8 +28,9 @@ If \code{Lambda=NULL} and \code{implementation=PenalisedRegression},
 \code{\link{LambdaGridRegression}} is used to define a relevant grid.}
 
 \item{pi_list}{vector of thresholds in selection proportions. If
-\code{n_cat=3}, these values must be \code{>0.5} and \code{<1}. If
-\code{n_cat=2}, these values must be \code{>0} and \code{<1}.}
+\code{n_cat=NULL} or \code{n_cat=2}, these values must be \code{>0} and
+\code{<1}. If \code{n_cat=3}, these values must be \code{>0.5} and
+\code{<1}.}
 
 \item{K}{number of resampling iterations.}
 
@@ -39,8 +40,9 @@ If \code{Lambda=NULL} and \code{implementation=PenalisedRegression},
 \item{seed}{value of the seed to initialise the random number generator and
 ensure reproducibility of the results (see \code{\link[base]{set.seed}}).}
 
-\item{n_cat}{number of categories used to compute the stability score.
-Possible values are 2 or 3.}
+\item{n_cat}{computation options for the stability score. Default is
+\code{NULL} to use the score based on a z test. Other possible values are 2
+or 3 to use the score based on the negative log-likelihood.}
 
 \item{family}{type of regression model. This argument is defined as in
 \code{\link[glmnet]{glmnet}}. Possible values include \code{"gaussian"}

@@ -102,11 +102,12 @@ Argmax <- function(stability) {
   } else {
     if (clustering) {
       id <- ArgmaxId(stability = stability)
-      argmax <- matrix(c(
-        stability$nc[id[1], 1],
-        stability$Lambda[id[1], 1]
-      ),
-      ncol = 2
+      argmax <- matrix(
+        c(
+          stability$nc[id[1], 1],
+          stability$Lambda[id[1], 1]
+        ),
+        ncol = 2
       )
     } else {
       argmax <- matrix(NA, nrow = ncol(stability$Lambda), ncol = 2)
@@ -549,7 +550,7 @@ CalibrationPlot <- function(stability, block_id = NULL,
       }
 
       if (is.null(ylim)) {
-        ylim <- range(x$S)
+        ylim <- range(x$S, na.rm = TRUE)
         if (legend) {
           ylim[2] <- ylim[2] + diff(ylim) * 0.15
         }
@@ -741,19 +742,26 @@ CalibrationPlot <- function(stability, block_id = NULL,
       # Extracting the number of blocks/components
       if ((stability$methods$type == "graphical_model") & (is.null(block_id))) {
         bigblocks <- BlockMatrix(stability$params$pk)
-        bigblocks_vect <- bigblocks[upper.tri(bigblocks)]
+        nblocks <- length(stability$params$pk) * (length(stability$params$pk) + 1) / 2
+        bigblocks_vect <- factor(bigblocks[upper.tri(bigblocks)], levels = 1:nblocks)
         N_blocks <- unname(table(bigblocks_vect))
-        blocks <- unique(as.vector(bigblocks_vect))
+        blocks <- levels(bigblocks_vect)
         names(N_blocks) <- blocks
-        nblocks <- max(blocks)
-        block_id <- 1:nblocks
+        block_id <- which(N_blocks != 0)
       } else {
-        block_id <- 1
+        if (is.null(block_id)) {
+          block_id <- 1
+        }
       }
       nblocks <- length(block_id)
 
       if (metric == "both") {
         for (b in block_id) {
+          # Printing block ID
+          if (length(block_id) > 1) {
+            message(paste0("Block ", b))
+          }
+
           # Extracting the stability scores
           if (clustering) {
             mat <- matrix(stability$Sc, ncol = length(unique(stability$Lambda)))
@@ -997,9 +1005,9 @@ CalibrationCurve <- function(stability,
 
   # Initialising plot
   plot(NA,
-    xlim = c(0, max(stability$nc)), ylim = c(0, 1),
+    xlim = c(0, max(stability$nc)), ylim = c(0, max(stability$Sc, na.rm = TRUE)),
     xlab = xlab, ylab = ylab, cex.axis = cex.axis,
-    las = 1, cex.lab = cex.lab, bty = bty
+    cex.lab = cex.lab, bty = bty
   )
 
   # Adding lines

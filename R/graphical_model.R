@@ -63,17 +63,22 @@
 #'   \eqn{V_{\lambda, \pi} = \{ j: p_{\lambda}(j) \ge \pi \} }
 #'
 #'   These parameters can be calibrated by maximisation of a stability score
-#'   (see \code{\link{StabilityScore}}) derived from the likelihood under the
-#'   assumption of uniform (uninformative) selection:
-#'
-#'   \eqn{S_{\lambda, \pi} = -log(L_{\lambda, \pi})}
+#'   (see \code{\link{ConsensusScore}} if \code{n_cat=NULL} or
+#'   \code{\link{StabilityScore}} otherwise) calculated under the null
+#'   hypothesis of equiprobability of selection.
 #'
 #'   It is strongly recommended to examine the calibration plot carefully to
 #'   check that the grids of parameters \code{Lambda} and \code{pi_list} do not
 #'   restrict the calibration to a region that would not include the global
 #'   maximum (see \code{\link{CalibrationPlot}}). In particular, the grid
 #'   \code{Lambda} may need to be extended when the maximum stability is
-#'   observed on the left or right edges of the calibration heatmap.
+#'   observed on the left or right edges of the calibration heatmap. In some
+#'   instances, multiple peaks of stability score can be observed. Simulation
+#'   studies suggest that the peak corresponding to the largest number of
+#'   selected features tend to give better selection performances. This is not
+#'   necessarily the highest peak (which is automatically retained by the
+#'   functions in this package). The user can decide to manually choose another
+#'   peak.
 #'
 #'   To control the expected number of False Positives (Per Family Error Rate)
 #'   in the results, a threshold \code{PFER_thr} can be specified. The
@@ -245,32 +250,15 @@
 #'     xdata = simul$data, Lambda = matrix(c(0.01, 0.05, 0.1), ncol = 1),
 #'     implementation = ShrinkageSelection
 #'   )
+#'   CalibrationPlot(stab)
 #'   stable_adjacency <- Adjacency(stab)
 #' }
-#'
-#'
-#' ## Example for the detection of block structure
-#'
-#' # Data simulation
-#' set.seed(1)
-#' pk <- sample(1:5, size = 5, replace = TRUE)
-#' simul <- SimulateComponents(
-#'   n = 100, pk = pk,
-#'   v_within = c(0.7, 0.8), v_sign = -1
-#' )
-#'
-#' # Data visualisation
-#' Heatmap(
-#'   mat = cor(simul$data),
-#'   col = c("navy", "white", "red"),
-#'   legend_range = c(-1, 1)
-#' )
 #'
 #' par(oldpar)
 #' }
 #' @export
 GraphicalModel <- function(xdata, pk = NULL, Lambda = NULL, lambda_other_blocks = 0.1,
-                           pi_list = seq(0.6, 0.9, by = 0.01), K = 100, tau = 0.5, seed = 1, n_cat = 3,
+                           pi_list = seq(0.01, 0.99, by = 0.01), K = 100, tau = 0.5, seed = 1, n_cat = NULL,
                            implementation = PenalisedGraphical, start = "warm", scale = TRUE,
                            resampling = "subsampling", cpss = FALSE,
                            PFER_method = "MB", PFER_thr = Inf, FDP_thr = Inf,
@@ -443,15 +431,16 @@ SerialGraphical <- function(xdata, pk = NULL, Lambda, lambda_other_blocks = 0.1,
 
   # Creating matrix with block indices
   bigblocks <- BlockMatrix(pk)
-  bigblocks_vect <- bigblocks[upper.tri(bigblocks)]
+  nblocks <- length(pk) * (length(pk) + 1) / 2
+  bigblocks_vect <- factor(bigblocks[upper.tri(bigblocks)], levels = 1:nblocks)
   N_blocks <- unname(table(bigblocks_vect))
-  blocks <- unique(as.vector(bigblocks_vect))
+  blocks <- levels(bigblocks_vect)
   names(N_blocks) <- blocks
-  nblocks <- max(blocks)
 
   # Preparing the PFER and FDP thresholds
   if (length(PFER_thr) == 1) {
     PFER_thr_blocks <- ceiling(prop.table(N_blocks) * PFER_thr)
+    PFER_thr_blocks[which(is.na(PFER_thr_blocks))] <- Inf
   } else {
     if (length(PFER_thr) == nblocks) {
       PFER_thr_blocks <- PFER_thr

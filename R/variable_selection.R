@@ -16,15 +16,17 @@
 #'   If \code{Lambda=NULL} and \code{implementation=PenalisedRegression},
 #'   \code{\link{LambdaGridRegression}} is used to define a relevant grid.
 #' @param pi_list vector of thresholds in selection proportions. If
-#'   \code{n_cat=3}, these values must be \code{>0.5} and \code{<1}. If
-#'   \code{n_cat=2}, these values must be \code{>0} and \code{<1}.
+#'   \code{n_cat=NULL} or \code{n_cat=2}, these values must be \code{>0} and
+#'   \code{<1}. If \code{n_cat=3}, these values must be \code{>0.5} and
+#'   \code{<1}.
 #' @param K number of resampling iterations.
 #' @param tau subsample size. Only used if \code{resampling="subsampling"} and
 #'   \code{cpss=FALSE}.
 #' @param seed value of the seed to initialise the random number generator and
 #'   ensure reproducibility of the results (see \code{\link[base]{set.seed}}).
-#' @param n_cat number of categories used to compute the stability score.
-#'   Possible values are 2 or 3.
+#' @param n_cat computation options for the stability score. Default is
+#'   \code{NULL} to use the score based on a z test. Other possible values are 2
+#'   or 3 to use the score based on the negative log-likelihood.
 #' @param family type of regression model. This argument is defined as in
 #'   \code{\link[glmnet]{glmnet}}. Possible values include \code{"gaussian"}
 #'   (linear regression), \code{"binomial"} (logistic regression),
@@ -101,17 +103,22 @@
 #'   \code{group_x}.
 #'
 #'   These parameters can be calibrated by maximisation of a stability score
-#'   (see \code{\link{StabilityScore}}) derived from the likelihood under the
-#'   assumption of uniform (uninformative) selection:
-#'
-#'   \eqn{S_{\lambda, \pi} = -log(L_{\lambda, \pi})}
+#'   (see \code{\link{ConsensusScore}} if \code{n_cat=NULL} or
+#'   \code{\link{StabilityScore}} otherwise) calculated under the null
+#'   hypothesis of equiprobability of selection.
 #'
 #'   It is strongly recommended to examine the calibration plot carefully to
 #'   check that the grids of parameters \code{Lambda} and \code{pi_list} do not
 #'   restrict the calibration to a region that would not include the global
 #'   maximum (see \code{\link{CalibrationPlot}}). In particular, the grid
 #'   \code{Lambda} may need to be extended when the maximum stability is
-#'   observed on the left or right edges of the calibration heatmap.
+#'   observed on the left or right edges of the calibration heatmap. In some
+#'   instances, multiple peaks of stability score can be observed. Simulation
+#'   studies suggest that the peak corresponding to the largest number of
+#'   selected features tend to give better selection performances. This is not
+#'   necessarily the highest peak (which is automatically retained by the
+#'   functions in this package). The user can decide to manually choose another
+#'   peak.
 #'
 #'   To control the expected number of False Positives (Per Family Error Rate)
 #'   in the results, a threshold \code{PFER_thr} can be specified. The
@@ -204,11 +211,32 @@
 #' # Linear regression
 #' set.seed(1)
 #' simul <- SimulateRegression(n = 100, pk = 50, family = "gaussian")
-#' stab <- VariableSelection(xdata = simul$xdata, ydata = simul$ydata, family = "gaussian")
-#' print(stab)
+#' stab <- VariableSelection(
+#'   xdata = simul$xdata, ydata = simul$ydata,
+#'   family = "gaussian"
+#' )
+#'
+#' # Calibration plot
 #' CalibrationPlot(stab)
+#'
+#' # Extracting the results
 #' summary(stab)
-#' SelectedVariables(stab)
+#' Stable(stab)
+#' SelectionProportions(stab)
+#' plot(stab)
+#'
+#' # Using randomised LASSO
+#' stab <- VariableSelection(
+#'   xdata = simul$xdata, ydata = simul$ydata,
+#'   family = "gaussian", penalisation = "randomised"
+#' )
+#' plot(stab)
+#'
+#' # Using adaptive LASSO
+#' stab <- VariableSelection(
+#'   xdata = simul$xdata, ydata = simul$ydata,
+#'   family = "gaussian", penalisation = "adaptive"
+#' )
 #' plot(stab)
 #'
 #' # Using additional arguments from glmnet (e.g. penalty.factor)
@@ -216,18 +244,32 @@
 #'   xdata = simul$xdata, ydata = simul$ydata, family = "gaussian",
 #'   penalty.factor = c(rep(1, 45), rep(0, 5))
 #' )
-#' summary(stab)
+#' head(coef(stab))
+#'
+#' # Using CART
+#' stab <- VariableSelection(
+#'   xdata = simul$xdata, ydata = simul$ydata,
+#'   implementation = CART,
+#'   family = "gaussian",
+#' )
+#' plot(stab)
 #'
 #' # Regression with multivariate outcomes
 #' set.seed(1)
 #' simul <- SimulateRegression(n = 100, pk = 20, q = 3, family = "gaussian")
-#' stab <- VariableSelection(xdata = simul$xdata, ydata = simul$ydata, family = "mgaussian")
+#' stab <- VariableSelection(
+#'   xdata = simul$xdata, ydata = simul$ydata,
+#'   family = "mgaussian"
+#' )
 #' summary(stab)
 #'
 #' # Logistic regression
 #' set.seed(1)
 #' simul <- SimulateRegression(n = 200, pk = 10, family = "binomial", ev_xy = 0.8)
-#' stab <- VariableSelection(xdata = simul$xdata, ydata = simul$ydata, family = "binomial")
+#' stab <- VariableSelection(
+#'   xdata = simul$xdata, ydata = simul$ydata,
+#'   family = "binomial"
+#' )
 #' summary(stab)
 #'
 #' # Sparse PCA (1 component, see BiSelection for more components)
@@ -262,18 +304,6 @@
 #' )
 #' CalibrationPlot(stab, xlab = "")
 #' SelectedVariables(stab)
-#'
-#' # Sparse PLS-DA (1 outcome, 1 component, see BiSelection for more options)
-#' set.seed(1)
-#' simul <- SimulateRegression(n = 200, pk = 20, family = "binomial")
-#' stab <- VariableSelection(
-#'   xdata = simul$xdata, ydata = simul$ydata,
-#'   Lambda = 1:(ncol(simul$xdata) - 1),
-#'   implementation = SparsePLS,
-#'   family = "binomial"
-#' )
-#' CalibrationPlot(stab, xlab = "")
-#' summary(stab)
 #'
 #' # Example with more hyper-parameters: elastic net
 #' set.seed(1)
@@ -365,8 +395,8 @@
 #' }
 #'
 #' @export
-VariableSelection <- function(xdata, ydata = NULL, Lambda = NULL, pi_list = seq(0.6, 0.9, by = 0.01),
-                              K = 100, tau = 0.5, seed = 1, n_cat = 3,
+VariableSelection <- function(xdata, ydata = NULL, Lambda = NULL, pi_list = seq(0.01, 0.99, by = 0.01),
+                              K = 100, tau = 0.5, seed = 1, n_cat = NULL,
                               family = "gaussian", implementation = PenalisedRegression,
                               resampling = "subsampling", cpss = FALSE,
                               PFER_method = "MB", PFER_thr = Inf, FDP_thr = Inf,
@@ -555,13 +585,13 @@ SerialRegression <- function(xdata, ydata = NULL, Lambda, pi_list = seq(0.6, 0.9
   colnames(Beta) <- colnames(mybeta$selected)
   if (length(dim(mybeta$beta_full)) == 2) {
     Beta_full <- array(0,
-      dim = c(nrow(Lambda), dim(mybeta$beta_full)[2], K),
+      dim = c(dim(mybeta$beta_full)[1], dim(mybeta$beta_full)[2], K),
       dimnames = list(rownames(mybeta$beta_full), dimnames(mybeta$beta_full)[[2]], NULL)
     )
   } else {
     if (length(dim(mybeta$beta_full)) == 3) {
       Beta_full <- array(0,
-        dim = c(nrow(Lambda), dim(mybeta$beta_full)[2], K, dim(mybeta$beta_full)[3]),
+        dim = c(dim(mybeta$beta_full)[1], dim(mybeta$beta_full)[2], K, dim(mybeta$beta_full)[3]),
         dimnames = list(rownames(mybeta$beta_full), dimnames(mybeta$beta_full)[[2]], NULL, dimnames(mybeta$beta_full)[[3]])
       )
     } else {
@@ -620,7 +650,7 @@ SerialRegression <- function(xdata, ydata = NULL, Lambda, pi_list = seq(0.6, 0.9
     rownames(bigstab) <- rownames(Beta)
     for (i in 1:nrow(Beta)) {
       for (j in 1:ncol(Beta)) {
-        bigstab[i, j] <- sum(Beta[i, j, ] != 0) / K
+        bigstab[i, j] <- sum(Beta[i, j, ] != 0, na.rm = TRUE) / sum(!is.na(Beta[i, j, ]))
       }
     }
   } else {
@@ -697,14 +727,20 @@ SerialRegression <- function(xdata, ydata = NULL, Lambda, pi_list = seq(0.6, 0.9
     bigstab <- matrix(0, nrow = nrow(Beta), ncol = ncol(Beta))
     colnames(bigstab) <- colnames(Beta)
     rownames(bigstab) <- rownames(Beta)
+    n_valid <- rep(0, nrow(Beta))
     for (k in 1:ceiling(K / 2)) {
       A1 <- ifelse(Beta[, , k] != 0, yes = 1, no = 0)
       A2 <- ifelse(Beta[, , ceiling(K / 2) + k] != 0, yes = 1, no = 0)
       A <- A1 + A2
       A <- ifelse(A == 2, yes = 1, no = 0)
+      tmp_missing <- apply(A, 1, FUN = function(x) {
+        any(is.na(x))
+      })
+      A[which(tmp_missing), ] <- 0
+      n_valid <- n_valid + ifelse(!tmp_missing, yes = 1, no = 0)
       bigstab <- bigstab + A
     }
-    bigstab <- bigstab / ceiling(K / 2)
+    bigstab <- bigstab / n_valid
   }
 
   if (verbose) {
