@@ -93,7 +93,7 @@
 #'   \code{\link{HierarchicalClustering}}, \code{\link{PAMClustering}},
 #'   \code{\link{KMeansClustering}}, \code{\link{GMMClustering}}
 #'
-#' @references \insertRef{ourstabilityselection}{sharp}
+#' @references \insertRef{OurConsensusClustering}{sharp}
 #'
 #'   \insertRef{rCOSA}{sharp}
 #'
@@ -446,11 +446,19 @@ SerialClustering <- function(xdata, nc, eps, Lambda,
     theta <- CoMembership(groups = stats::cutree(sh_clust, k = ceiling(nc_full[i])))
 
     # Calculating the consensus score
-    metrics2[i] <- ConsensusScore(
-      prop = (bigstab_obs[, , i])[upper.tri(bigstab_obs[, , i])],
-      K = sampled_pairs[upper.tri(sampled_pairs)],
-      theta = theta[upper.tri(theta)]
-    )
+    if (row) {
+      metrics2[i] <- ConsensusScore(
+        prop = (bigstab_obs[, , i])[upper.tri(bigstab_obs[, , i])],
+        K = sampled_pairs[upper.tri(sampled_pairs)],
+        theta = theta[upper.tri(theta)]
+      )
+    } else {
+      metrics2[i] <- ConsensusScore(
+        prop = (bigstab_obs[, , i])[upper.tri(bigstab_obs[, , i])],
+        K = K,
+        theta = theta[upper.tri(theta)]
+      )
+    }
   }
 
   # Computing the selection proportions

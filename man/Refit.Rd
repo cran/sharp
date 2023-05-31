@@ -11,6 +11,8 @@ Refit(
   stability = NULL,
   family = NULL,
   implementation = NULL,
+  Lambda = NULL,
+  seed = 1,
   verbose = TRUE,
   ...
 )
@@ -21,6 +23,8 @@ Recalibrate(
   stability = NULL,
   family = NULL,
   implementation = NULL,
+  Lambda = NULL,
+  seed = 1,
   verbose = TRUE,
   ...
 )
@@ -44,13 +48,19 @@ regression), \code{"multinomial"} (multinomial regression), and
 \code{"cox"} (survival analysis). If provided, this argument must be
 consistent with input \code{stability}.}
 
-\item{implementation}{optional function to refit the model. If
-\code{implementation=NULL} and \code{stability} is the output of
-\code{\link{VariableSelection}}, \code{\link[stats]{lm}} (linear
+\item{implementation}{optional function to refit the model. If \code{stability} is the output of
+\code{\link{VariableSelection}}, a regression model is refitted.
+If \code{implementation=NULL} and \code{Lambda=0}, this is done using \code{\link[stats]{lm}} (for linear
 regression), \code{\link[survival]{coxph}} (Cox regression),
 \code{\link[stats]{glm}} (logistic regression), or
-\code{\link[nnet]{multinom}} (multinomial regression) is used. The function
-\code{\link{PLS}} is used for the output of \code{\link{BiSelection}}.}
+\code{\link[nnet]{multinom}} (multinomial regression).
+If \code{Lambda=NULL}, a Ridge regression is fitted and calibrated by cross validation using \code{\link[glmnet]{cv.glmnet}}.
+The function \code{\link{PLS}} is used if \code{stability} is the output of \code{\link{BiSelection}}.}
+
+\item{Lambda}{optional vector of penalty parameters.}
+
+\item{seed}{value of the seed to initialise the random number generator and
+ensure reproducibility of the results (see \code{\link[base]{set.seed}}).}
 
 \item{verbose}{logical indicating if a loading bar and messages should be
 printed.}

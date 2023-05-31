@@ -58,8 +58,9 @@
 #' }
 #' @export
 HierarchicalClustering <- function(xdata, nc = NULL, Lambda = NULL,
-                                   distance = "euclidean", linkage = "complete",
-                                   scale = TRUE, row = TRUE, ...) {
+                                   distance = "euclidean",
+                                   linkage = "complete",
+                                   ...) {
   # Storing extra arguments
   extra_args <- list(...)
 
@@ -101,27 +102,13 @@ HierarchicalClustering <- function(xdata, nc = NULL, Lambda = NULL,
     }
   }
 
-  # Scaling the data
-  if (scale) {
-    xdata <- scale(xdata)
-  }
-
-  # Transposing if clustering of columns
-  if (!row) {
-    xdata <- t(xdata)
-  }
-
   # Re-formatting nc
   if (!is.null(nc)) {
     if (is.vector(nc)) {
       nc <- cbind(nc)
     }
   } else {
-    if (row) {
-      nc <- cbind(seq(1, nrow(xdata)))
-    } else {
-      nc <- cbind(seq(1, ncol(xdata)))
-    }
+    nc <- cbind(seq(1, nrow(xdata)))
   }
 
   if (weighted) {
@@ -255,7 +242,7 @@ HierarchicalClustering <- function(xdata, nc = NULL, Lambda = NULL,
 #' @export
 PAMClustering <- function(xdata, nc = NULL, Lambda = NULL,
                           distance = "euclidean",
-                          scale = TRUE, ...) {
+                          ...) {
   # Storing extra arguments
   extra_args <- list(...)
 
@@ -290,11 +277,6 @@ PAMClustering <- function(xdata, nc = NULL, Lambda = NULL,
       warning("Invalid input for argument 'distance'. For COSA clustering, possible values are: 'euclidean' (L2-norm) or 'absolute' (L1-norm). The 'euclidean' distance was used.")
       distance <- 2
     }
-  }
-
-  # Scaling the data
-  if (scale) {
-    xdata <- scale(xdata)
   }
 
   # Re-formatting nc
@@ -442,7 +424,7 @@ DBSCANClustering <- function(xdata,
                              eps = NULL,
                              Lambda = NULL,
                              distance = "euclidean",
-                             scale = TRUE, ...) {
+                             ...) {
   # Storing extra arguments
   extra_args <- list(...)
 
@@ -477,11 +459,6 @@ DBSCANClustering <- function(xdata,
       warning("Invalid input for argument 'distance'. For COSA clustering, possible values are: 'euclidean' (L2-norm) or 'absolute' (L1-norm). The 'euclidean' distance was used.")
       distance <- 2
     }
-  }
-
-  # Scaling the data
-  if (scale) {
-    xdata <- scale(xdata)
   }
 
   # Re-formatting eps
@@ -603,14 +580,10 @@ DBSCANClustering <- function(xdata,
 #' # k-means clustering
 #' mykmeans <- KMeansClustering(xdata = simul$data, nc = 1:20)
 #' @export
-KMeansClustering <- function(xdata, nc = NULL, scale = TRUE, ...) {
+KMeansClustering <- function(xdata, nc = NULL,
+                             ...) {
   # Storing extra arguments
   extra_args <- list(...)
-
-  # Scaling the data
-  if (scale) {
-    xdata <- scale(xdata)
-  }
 
   # Re-formatting nc
   if (!is.null(nc)) {
@@ -674,7 +647,8 @@ KMeansClustering <- function(xdata, nc = NULL, scale = TRUE, ...) {
 #' # Clustering using Gaussian Mixture Models
 #' mygmm <- GMMClustering(xdata = simul$data, nc = 1:30)
 #' @export
-GMMClustering <- function(xdata, nc = NULL, scale = TRUE, ...) {
+GMMClustering <- function(xdata, nc = NULL,
+                          ...) {
   # Checking mclust package is installed
   if (!requireNamespace("mclust")) {
     stop("This function requires the 'mclust' package.")
@@ -682,11 +656,6 @@ GMMClustering <- function(xdata, nc = NULL, scale = TRUE, ...) {
 
   # Storing extra arguments
   extra_args <- list(...)
-
-  # Scaling the data
-  if (scale) {
-    xdata <- scale(xdata)
-  }
 
   # Re-formatting nc
   if (!is.null(nc)) {

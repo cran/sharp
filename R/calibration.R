@@ -20,6 +20,7 @@
 #' @seealso \code{\link{VariableSelection}}, \code{\link{GraphicalModel}}
 #'
 #' @examples
+#' \donttest{
 #' # Data simulation
 #' set.seed(1)
 #' simul <- SimulateGraphical(pk = 20)
@@ -37,7 +38,7 @@
 #' # Relationship between the two functions
 #' stab$Lambda[ids[1], 1]
 #' stab$params$pi_list[ids[2]]
-#'
+#' }
 #' @export
 ArgmaxId <- function(stability = NULL, S = NULL) {
   if ((is.null(stability)) & (is.null(S))) {
@@ -218,7 +219,7 @@ Coefficients <- function(stability, side = "X", comp = 1, iterations = NULL) {
 #'
 #' # Comparison with refitted model
 #' refitted <- Refit(xdata = simul$xdata, ydata = simul$ydata, stability = stab)
-#' refitted_betas <- refitted$coefficients[-1]
+#' refitted_betas <- coef(refitted)[-1, 1]
 #' plot(median_betas[names(refitted_betas), ], refitted_betas,
 #'   panel.first = abline(0, 1, lty = 2)
 #' )

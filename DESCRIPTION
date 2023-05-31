@@ -1,8 +1,8 @@
 Package: sharp
 Type: Package
 Title: Stability-enHanced Approaches using Resampling Procedures
-Version: 1.4.0
-Date: 2023-04-18
+Version: 1.4.1
+Date: 2023-05-30
 Author: Barbara Bodinier [aut, cre]
 Maintainer: Barbara Bodinier <barbara.bodinier@gmail.com>
 URL: https://github.com/barbarabodinier/sharp
@@ -14,16 +14,15 @@ Encoding: UTF-8
 RoxygenNote: 7.2.3
 Depends: fake (>= 1.4.0), R (>= 3.5)
 Imports: abind, beepr, glassoFast (>= 1.0.0), glmnet, grDevices,
-        igraph, lavaan, mclust, parallel, Rdpack, regsem, withr (>=
-        2.4.0)
+        igraph, lavaan, mclust, parallel, Rdpack, withr (>= 2.4.0)
 Suggests: cluster, corpcor, dbscan, elasticnet, gglasso, mixOmics,
-        nnet, OpenMx, plotrix, RCy3, randomcoloR, rCOSA, rmarkdown,
-        rpart, sgPLS, sparcl, survival (>= 3.2.13), testthat (>=
+        nnet, OpenMx, plotrix, RCy3, randomcoloR, rCOSA, regsem,
+        rmarkdown, rpart, sgPLS, survival (>= 3.2.13), testthat (>=
         3.0.0), visNetwork
 Additional_repositories: https://barbarabodinier.github.io/drat
 Config/testthat/edition: 3
 RdMacros: Rdpack
 NeedsCompilation: no
-Packaged: 2023-04-18 11:53:22 UTC; barbara
+Packaged: 2023-05-30 20:40:02 UTC; barbara_mbp
 Repository: CRAN
-Date/Publication: 2023-04-18 12:30:02 UTC
+Date/Publication: 2023-05-31 08:00:08 UTC

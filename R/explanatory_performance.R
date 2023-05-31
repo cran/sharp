@@ -14,13 +14,15 @@
 #'   regression), \code{"multinomial"} (multinomial regression), and
 #'   \code{"cox"} (survival analysis). If provided, this argument must be
 #'   consistent with input \code{stability}.
-#' @param implementation optional function to refit the model. If
-#'   \code{implementation=NULL} and \code{stability} is the output of
-#'   \code{\link{VariableSelection}}, \code{\link[stats]{lm}} (linear
+#' @param implementation optional function to refit the model. If \code{stability} is the output of
+#'   \code{\link{VariableSelection}}, a regression model is refitted.
+#'   If \code{implementation=NULL} and \code{Lambda=0}, this is done using \code{\link[stats]{lm}} (for linear
 #'   regression), \code{\link[survival]{coxph}} (Cox regression),
 #'   \code{\link[stats]{glm}} (logistic regression), or
-#'   \code{\link[nnet]{multinom}} (multinomial regression) is used. The function
-#'   \code{\link{PLS}} is used for the output of \code{\link{BiSelection}}.
+#'   \code{\link[nnet]{multinom}} (multinomial regression).
+#'   If \code{Lambda=NULL}, a Ridge regression is fitted and calibrated by cross validation using \code{\link[glmnet]{cv.glmnet}}.
+#'   The function \code{\link{PLS}} is used if \code{stability} is the output of \code{\link{BiSelection}}.
+#' @param Lambda optional vector of penalty parameters.
 #' @param ... additional arguments to be passed to the function provided in
 #'   \code{implementation}.
 #'
@@ -138,6 +140,7 @@
 #' @export
 Refit <- function(xdata, ydata, stability = NULL,
                   family = NULL, implementation = NULL,
+                  Lambda = NULL, seed = 1,
                   verbose = TRUE, ...) {
   # Storing extra arguments
   extra_args <- list(...)
@@ -211,6 +214,7 @@ Refit <- function(xdata, ydata, stability = NULL,
       names(selected)[which(selected == 1)],
       colnames(xdata)[!colnames(xdata) %in% names(selected)]
     )
+    xdata <- xdata[, ids, drop = FALSE]
 
     if (is.null(implementation)) {
       # Writing model formula
@@ -223,66 +227,108 @@ Refit <- function(xdata, ydata, stability = NULL,
         myformula <- stats::as.formula(paste0("ydata ~ ", paste(paste0("`", ids, "`"), collapse = " + ")))
       }
 
-      # Recalibration for linear regression
-      if (family == "gaussian") {
-        tmp_extra_args <- MatchingArguments(extra_args = extra_args, FUN = stats::lm)
-        tmp_extra_args <- tmp_extra_args[!names(tmp_extra_args) %in% c("formula", "data")]
-        mymodel <- do.call(stats::lm, args = c(
-          list(
-            formula = myformula,
-            data = as.data.frame(xdata)
-          ),
-          tmp_extra_args
-        ))
+      # Defining penalisation
+      penalised <- TRUE
+      if (ncol(xdata) == 1) {
+        penalised <- FALSE
       }
 
-      # Recalibration for Cox regression
-      if (family == "cox") {
-        ids1 <- which(names(extra_args) %in% names(formals(survival::coxph)))
-        ids2 <- which(names(extra_args) %in% names(formals(survival::coxph.control)))
-        tmp_extra_args <- extra_args[unique(c(ids1, ids2))]
-        tmp_extra_args <- tmp_extra_args[!names(tmp_extra_args) %in% c("formula", "data")]
-        ydata <- survival::Surv(time = ydata[, 1], event = ydata[, 2])
-        mymodel <- do.call(survival::coxph, args = c(
-          list(
-            formula = myformula,
-            data = as.data.frame(xdata)
-          ),
-          tmp_extra_args
-        ))
-      }
+      # Preparing the model
+      if (penalised) {
+        # Extracting relevant extra arguments
+        tmp_extra_args <- MatchingArguments(extra_args = extra_args, FUN = glmnet::cv.glmnet)
+        tmp_extra_args <- tmp_extra_args[!names(tmp_extra_args) %in% c("x", "y", "lambda", "alpha", "family", "type.multinomial")]
 
-      # Recalibration for logistic regression
-      if (family == "binomial") {
-        ids1 <- which(names(extra_args) %in% names(formals(stats::glm)))
-        ids2 <- which(names(extra_args) %in% names(formals(stats::glm.control)))
-        tmp_extra_args <- extra_args[unique(c(ids1, ids2))]
-        tmp_extra_args <- tmp_extra_args[!names(tmp_extra_args) %in% c("formula", "data", "family")]
-        suppressWarnings({
-          mymodel <- do.call(stats::glm, args = c(
+        # Setting seed for reproducibility
+        withr::local_seed(seed)
+
+        # Running model
+        if ((is.null(Lambda)) | (length(Lambda) > 1)) {
+          mymodel <- do.call(glmnet::cv.glmnet, args = c(
             list(
-              formula = myformula,
-              data = as.data.frame(xdata),
-              family = stats::binomial(link = "logit")
+              x = xdata,
+              y = ydata,
+              family = family,
+              alpha = 0,
+              lambda = Lambda,
+              type.multinomial = "grouped"
             ),
             tmp_extra_args
           ))
-        })
-      }
+        } else {
+          mymodel <- do.call(glmnet::glmnet, args = c(
+            list(
+              x = xdata,
+              y = ydata,
+              family = family,
+              alpha = 0,
+              lambda = Lambda,
+              type.multinomial = "grouped"
+            ),
+            tmp_extra_args
+          ))
+        }
+      } else {
+        # Recalibration for linear regression
+        if (family == "gaussian") {
+          tmp_extra_args <- MatchingArguments(extra_args = extra_args, FUN = stats::lm)
+          tmp_extra_args <- tmp_extra_args[!names(tmp_extra_args) %in% c("formula", "data")]
+          mymodel <- do.call(stats::lm, args = c(
+            list(
+              formula = myformula,
+              data = as.data.frame(xdata)
+            ),
+            tmp_extra_args
+          ))
+        }
 
-      # Recalibration for multinomial regression
-      if (family == "multinomial") {
-        tmp_extra_args <- MatchingArguments(extra_args = extra_args, FUN = nnet::multinom)
-        tmp_extra_args <- tmp_extra_args[!names(tmp_extra_args) %in% c("formula", "data", "trace")]
-        mymodel <- do.call(nnet::multinom, args = c(
-          list(
-            formula = myformula,
-            data = as.data.frame(xdata),
-            trace = FALSE
-          ),
-          tmp_extra_args
-        ))
-        # mymodel <- nnet::multinom(myformula, data = as.data.frame(xdata), trace = FALSE, ...)
+        # Recalibration for Cox regression
+        if (family == "cox") {
+          ids1 <- which(names(extra_args) %in% names(formals(survival::coxph)))
+          ids2 <- which(names(extra_args) %in% names(formals(survival::coxph.control)))
+          tmp_extra_args <- extra_args[unique(c(ids1, ids2))]
+          tmp_extra_args <- tmp_extra_args[!names(tmp_extra_args) %in% c("formula", "data")]
+          ydata <- survival::Surv(time = ydata[, 1], event = ydata[, 2])
+          mymodel <- do.call(survival::coxph, args = c(
+            list(
+              formula = myformula,
+              data = as.data.frame(xdata)
+            ),
+            tmp_extra_args
+          ))
+        }
+
+        # Recalibration for logistic regression
+        if (family == "binomial") {
+          ids1 <- which(names(extra_args) %in% names(formals(stats::glm)))
+          ids2 <- which(names(extra_args) %in% names(formals(stats::glm.control)))
+          tmp_extra_args <- extra_args[unique(c(ids1, ids2))]
+          tmp_extra_args <- tmp_extra_args[!names(tmp_extra_args) %in% c("formula", "data", "family")]
+          suppressWarnings({
+            mymodel <- do.call(stats::glm, args = c(
+              list(
+                formula = myformula,
+                data = as.data.frame(xdata),
+                family = stats::binomial(link = "logit")
+              ),
+              tmp_extra_args
+            ))
+          })
+        }
+
+        # Recalibration for multinomial regression
+        if (family == "multinomial") {
+          tmp_extra_args <- MatchingArguments(extra_args = extra_args, FUN = nnet::multinom)
+          tmp_extra_args <- tmp_extra_args[!names(tmp_extra_args) %in% c("formula", "data", "trace")]
+          mymodel <- do.call(nnet::multinom, args = c(
+            list(
+              formula = myformula,
+              data = as.data.frame(xdata),
+              trace = FALSE
+            ),
+            tmp_extra_args
+          ))
+        }
       }
     } else {
       tmp_extra_args <- extra_args[!names(extra_args) %in% c("xdata", "ydata", "family")]
@@ -347,14 +393,6 @@ Recalibrate <- Refit
 #'   used. Only applicable to logistic regression.
 #' @param time numeric indicating the time for which the survival probabilities
 #'   are computed. Only applicable to Cox regression.
-#' @param ij_method logical indicating if the analysis should be done for only
-#'   one refitting/test split with variance of the concordance index should be
-#'   computed using the infinitesimal jackknife method as implemented in
-#'   \code{\link[survival]{concordance}}. If \code{ij_method=FALSE} (the
-#'   default), the concordance indices computed for different refitting/test
-#'   splits are reported. If \code{ij_method=TRUE}, the concordance index and
-#'   estimated confidence interval at level 0.05 are reported. Only applicable
-#'   to Cox regression.
 #' @param resampling resampling approach to create the training set. The default
 #'   is \code{"subsampling"} for sampling without replacement of a proportion
 #'   \code{tau} of the observations. Alternatively, this argument can be a
@@ -387,14 +425,9 @@ Recalibrate <- Refit
 #'   only).} \item{FPR}{False Positive Rate (for logistic regression only).}
 #'   \item{AUC}{Area Under the Curve (for logistic regression only).}
 #'   \item{concordance}{Concordance index (for Cox regression only).}
-#'   \item{lower}{lower bound of the confidence interval at level 0.05 for the
-#'   concordance index calculated using the infinitesimal jackknife (for Cox
-#'   regression and with \code{ij_method=TRUE}).} \item{upper}{upper bound of
-#'   the confidence interval at level 0.05 for the concordance index calculated
-#'   using the infinitesimal jackknife (for Cox regression and with
-#'   \code{ij_method=TRUE}).} \item{Beta}{matrix of estimated beta coefficients
-#'   across the \code{K} iterations. Coefficients are extracted using the
-#'   \code{\link[stats]{coef}} function.}
+#'   \item{Beta}{matrix of estimated beta coefficients across the \code{K}
+#'   iterations. Coefficients are extracted using the \code{\link[stats]{coef}}
+#'   function.}
 #'
 #' @seealso \code{\link{VariableSelection}}, \code{\link{Refit}}
 #'
@@ -481,7 +514,7 @@ ExplanatoryPerformance <- function(xdata, ydata, new_xdata = NULL, new_ydata = N
                                    implementation = NULL, prediction = NULL, resampling = "subsampling",
                                    K = 1, tau = 0.8, seed = 1,
                                    n_thr = NULL,
-                                   ij_method = FALSE, time = 1000,
+                                   time = 1000,
                                    verbose = FALSE, ...) {
   # Checking the inputs
   if (!is.null(stability)) {
@@ -519,14 +552,11 @@ ExplanatoryPerformance <- function(xdata, ydata, new_xdata = NULL, new_ydata = N
     CheckDataRegression(
       xdata = new_xdata, ydata = new_ydata, family = family, verbose = verbose
     )
-    xtest <- xdata
+    xtest <- xdata # variable updated by CheckDataRegression()
     ytest <- ydata
   }
 
   # Defining the metric to use
-  if (ij_method) {
-    K <- 1
-  }
   if (family == "binomial") {
     metric <- "roc"
   }
@@ -568,28 +598,34 @@ ExplanatoryPerformance <- function(xdata, ydata, new_xdata = NULL, new_ydata = N
       # Initialising matrix of beta coefficients
       if (iter == 1) {
         if (family %in% c("gaussian", "binomial", "cox")) {
-          Beta <- matrix(NA, nrow = K, ncol = length(stats::coef(refitted)))
-          colnames(Beta) <- names(stats::coef(refitted))
+          tmpbeta <- as.vector(stats::coef(refitted))
+          Beta <- matrix(NA, nrow = K, ncol = length(tmpbeta))
+          colnames(Beta) <- names(tmpbeta)
           rownames(Beta) <- paste0("iter", 1:K)
         }
       }
 
       # Storing beta coefficients
       if (family %in% c("gaussian", "binomial", "cox")) {
-        Beta[iter, ] <- stats::coef(refitted)
+        Beta[iter, ] <- as.vector(stats::coef(refitted))
       }
 
-      # Predictions from logistic models
-      if (tolower(metric) == "roc") {
-        suppressWarnings({
-          predicted <- stats::predict.glm(refitted, newdata = as.data.frame(xtest))
-        })
-      }
+      if (ncol(xtrain) == 1) {
+        # Predictions from logistic models
+        if (tolower(metric) == "roc") {
+          suppressWarnings({
+            predicted <- stats::predict.glm(refitted, newdata = as.data.frame(xtest))
+          })
+        }
 
-
-      # Predictions from linear models
-      if (tolower(metric) == "q2") {
-        predicted <- stats::predict.lm(refitted, newdata = as.data.frame(xtest))
+        # Predictions from linear models
+        if (tolower(metric) == "q2") {
+          predicted <- stats::predict.lm(refitted, newdata = as.data.frame(xtest))
+        }
+      } else {
+        ids_predictors <- rownames(stats::coef(refitted))
+        ids_predictors <- ids_predictors[which(ids_predictors %in% colnames(xtest))]
+        predicted <- stats::predict(refitted, newx = as.matrix(xtest[, ids_predictors]))
       }
     } else {
       if (is.null(prediction)) {
@@ -597,6 +633,7 @@ ExplanatoryPerformance <- function(xdata, ydata, new_xdata = NULL, new_ydata = N
       }
       predicted <- do.call(prediction, args = list(xdata = xtest, model = refitted))
     }
+
     # Performing ROC analyses
     if (tolower(metric) == "roc") {
       # ROC analysis
@@ -628,24 +665,17 @@ ExplanatoryPerformance <- function(xdata, ydata, new_xdata = NULL, new_ydata = N
     # Performing concordance analyses
     if (tolower(metric) == "concordance") {
       # Computing the concordance index for given times
-      predicted <- stats::predict(refitted, newdata = as.data.frame(xtest), type = "lp")
-      survobject <- survival::Surv(time = ytest[, 1], event = ytest[, 2])
-      S0 <- summary(survival::survfit(refitted), times = time, extend = TRUE)$surv
-      S <- S0^exp(predicted)
-      cstat <- survival::concordance(survobject ~ S)
-
-      if (ij_method) {
-        # Storing the concordance index and confidence interval
-        cindex <- cstat$concordance
-        lower <- cindex - 1.96 * sqrt(cstat$var)
-        upper <- cindex + 1.96 * sqrt(cstat$var)
+      if (length(stats::coef(refitted)) == 1) {
+        predicted <- stats::predict(refitted, newdata = as.data.frame(xtest), type = "lp")
       } else {
-        # Storing concordance index
-        if (iter == 1) {
-          cindex <- rep(NA, K)
-        }
-        cindex[iter] <- cstat$concordance
+        predicted <- stats::predict(refitted, newx = as.matrix(xtest), type = "link")
       }
+      ytest[which(ytest[, "time"] > time), "status"] <- 0
+      cstat <- glmnet::Cindex(pred = predicted, y = ytest)
+      if (iter == 1) {
+        cindex <- rep(NA, K)
+      }
+      cindex[iter] <- cstat
     }
   }
 
@@ -655,11 +685,7 @@ ExplanatoryPerformance <- function(xdata, ydata, new_xdata = NULL, new_ydata = N
   }
 
   if (tolower(metric) == "concordance") {
-    if (ij_method) {
-      out <- list(concordance = cindex, lower = lower, upper = upper)
-    } else {
-      out <- list(concordance = cindex)
-    }
+    out <- list(concordance = cindex)
   }
 
   if (tolower(metric) == "q2") {
@@ -705,19 +731,11 @@ ExplanatoryPerformance <- function(xdata, ydata, new_xdata = NULL, new_ydata = N
 #'   which predictors are stably selected. Only returned if \code{stability} is
 #'   provided.}
 #'
-#'   For Cox regression, a list with: \item{concordance}{If
-#'   \code{ij_method=FALSE}, a list with, for each of the models (sequentially
-#'   added predictors), a vector of concordance indices obtained with different
-#'   data splits. If \code{ij_method=TRUE}, a vector of concordance indices for
-#'   each of the models (sequentially added predictors).} \item{lower}{A vector
-#'   of the lower bound of the confidence interval at level 0.05 for concordance
-#'   indices for each of the models (sequentially added predictors). Only
-#'   returned if \code{ij_method=TRUE}.} \item{upper}{A vector of the upper
-#'   bound of the confidence interval at level 0.05 for concordance indices for
-#'   each of the models (sequentially added predictors). Only returned if
-#'   \code{ij_method=TRUE}.} \item{Beta}{Estimated regression coefficients from
-#'   visited models.} \item{names}{Names of the predictors by order of
-#'   inclusion.} \item{stable}{Binary vector indicating
+#'   For Cox regression, a list with: \item{concordance}{A list with, for each
+#'   of the models (sequentially added predictors), a vector of concordance
+#'   indices obtained with different data splits.} \item{Beta}{Estimated
+#'   regression coefficients from visited models.} \item{names}{Names of the
+#'   predictors by order of inclusion.} \item{stable}{Binary vector indicating
 #'   which predictors are stably selected. Only returned if \code{stability} is
 #'   provided.}
 #'
@@ -725,8 +743,8 @@ ExplanatoryPerformance <- function(xdata, ydata, new_xdata = NULL, new_ydata = N
 #'   of the models (sequentially added predictors), a vector of Q-squared
 #'   obtained with different data splits.} \item{Beta}{Estimated regression
 #'   coefficients from visited models.} \item{names}{Names of the predictors by
-#'   order of inclusion.} \item{stable}{Binary vector indicating
-#'   which predictors are stably selected. Only returned if \code{stability} is
+#'   order of inclusion.} \item{stable}{Binary vector indicating which
+#'   predictors are stably selected. Only returned if \code{stability} is
 #'   provided.}
 #'
 #' @seealso \code{\link{VariableSelection}}, \code{\link{Refit}}
@@ -786,7 +804,7 @@ Incremental <- function(xdata, ydata, new_xdata = NULL, new_ydata = NULL,
                         n_predictors = NULL,
                         K = 100, tau = 0.8, seed = 1,
                         n_thr = NULL,
-                        ij_method = FALSE, time = 1000,
+                        time = 1000,
                         verbose = TRUE, ...) {
   # Checking the inputs
   if (!is.null(stability)) {
@@ -823,17 +841,23 @@ Incremental <- function(xdata, ydata, new_xdata = NULL, new_ydata = NULL,
       n_predictors <- 10
     }
   }
-  n_predictors <- min(n_predictors, ncol(xdata))
 
   # Defining the order of inclusion in the model
   if (is.null(stability)) {
     myorder <- colnames(xdata) # order of the columns is used
+    n_predictors <- min(n_predictors, ncol(xdata))
   } else {
+    # Identifying unpenalised variables
+    unpenalised_vars <- colnames(xdata)[!colnames(xdata) %in% names(SelectedVariables(stability))]
+    n_unpenalised <- length(unpenalised_vars)
+    n_predictors <- min(n_predictors, ncol(xdata) - n_unpenalised)
+
     # Including variables by order of decreasing selection proportions
     myorder <- names(SelectionProportions(stability))[sort.list(SelectionProportions(stability), decreasing = TRUE)]
+    myorder <- myorder[1:n_predictors]
 
     # Including the variables that are forced in the model first by order of columns in the data
-    myorder <- c(colnames(xdata)[!colnames(xdata) %in% names(SelectedVariables(stability))], myorder)
+    myorder <- c(unpenalised_vars, myorder)
   }
 
   # Initialisation of the objects
@@ -842,11 +866,7 @@ Incremental <- function(xdata, ydata, new_xdata = NULL, new_ydata = NULL,
     TPR <- FPR <- AUC <- list()
   }
   if (family == "cox") {
-    if (ij_method) {
-      concordance <- lower <- upper <- NULL
-    } else {
-      concordance <- list()
-    }
+    concordance <- list()
   }
   if (family == "gaussian") {
     Q_squared <- list()
@@ -856,7 +876,7 @@ Incremental <- function(xdata, ydata, new_xdata = NULL, new_ydata = NULL,
     pb <- utils::txtProgressBar(style = 3)
   }
 
-  for (k in 1:n_predictors) {
+  for (k in 1:length(myorder)) {
     perf <- ExplanatoryPerformance(
       xdata = xdata[, myorder[1:k], drop = FALSE],
       ydata = ydata,
@@ -869,7 +889,7 @@ Incremental <- function(xdata, ydata, new_xdata = NULL, new_ydata = NULL,
       resampling = resampling,
       K = K, tau = tau, seed = seed,
       n_thr = n_thr,
-      ij_method = ij_method, time = time,
+      time = time,
       verbose = FALSE,
       ...
     )
@@ -879,13 +899,7 @@ Incremental <- function(xdata, ydata, new_xdata = NULL, new_ydata = NULL,
       AUC <- c(AUC, list(perf$AUC))
     }
     if (family == "cox") {
-      if (ij_method) {
-        concordance <- c(concordance, perf$concordance)
-        lower <- c(lower, perf$lower)
-        upper <- c(upper, perf$upper)
-      } else {
-        concordance <- c(concordance, list(perf$concordance))
-      }
+      concordance <- c(concordance, list(perf$concordance))
     }
     if (family == "gaussian") {
       Q_squared <- c(Q_squared, list(perf$Q_squared))
@@ -893,7 +907,7 @@ Incremental <- function(xdata, ydata, new_xdata = NULL, new_ydata = NULL,
     Beta <- c(Beta, list(perf$Beta))
 
     if (verbose) {
-      utils::setTxtProgressBar(pb, k / n_predictors)
+      utils::setTxtProgressBar(pb, k / length(myorder))
     }
   }
 
@@ -902,11 +916,7 @@ Incremental <- function(xdata, ydata, new_xdata = NULL, new_ydata = NULL,
     out <- list(FPR = FPR, TPR = TPR, AUC = AUC)
   }
   if (family == "cox") {
-    if (ij_method) {
-      out <- list(concordance = concordance, lower = lower, upper = upper)
-    } else {
-      out <- list(concordance = concordance)
-    }
+    out <- list(concordance = concordance)
   }
   if (family == "gaussian") {
     out <- list(Q_squared = Q_squared)
@@ -918,15 +928,14 @@ Incremental <- function(xdata, ydata, new_xdata = NULL, new_ydata = NULL,
   }
 
   # Adding variable names
-  mynames <- myorder[1:n_predictors]
+  mynames <- myorder
   out <- c(out, names = list(mynames))
 
   # Adding stable selection status
   if (!is.null(stability)) {
-    mystable <- ifelse(myorder[1:n_predictors] %in% myorder[1:sum(SelectedVariables(stability))],
-      yes = 1, no = 0
-    )
-    names(mystable) <- mynames
+    mystable <- rep(0, length(myorder))
+    names(mystable) <- myorder
+    mystable[1:max(which(myorder %in% names(which(SelectedVariables(stability) == 1))))] <- 1
     out <- c(out, stable = list(mystable))
   }
 

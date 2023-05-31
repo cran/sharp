@@ -116,6 +116,12 @@ plot.variable_selection <- function(x,
 
 
 #' @export
+plot.structural_model <- function(x, ...) {
+  igraph::plot.igraph(Graph(Stable(x), mode = "directed"), ...)
+}
+
+
+#' @export
 plot.graphical_model <- function(x, ...) {
   igraph::plot.igraph(Graph(x), ...)
 }
@@ -455,6 +461,8 @@ plot.incremental <- function(x,
   if (!"ylim" %in% names(extra_args)) {
     ylim <- range(c(xlower, xupper, xfull))
     extra_args$ylim <- ylim
+  } else {
+    ylim <- extra_args$ylim
   }
   if (!"xlim" %in% names(extra_args)) {
     extra_args$xlim <- range(xseq)
@@ -476,12 +484,12 @@ plot.incremental <- function(x,
   if ("stable" %in% names(x)) {
     mycolours <- col[abs(x$stable - 2)]
   } else {
-    mycolours <- col[1]
+    mycolours <- rep(col[1], length(x$names))
   }
   if ("stable" %in% names(x)) {
     mycolours_axis <- col.axis[abs(x$stable - 2)]
   } else {
-    mycolours_axis <- col.axis[1]
+    mycolours_axis <- rep(col.axis[1], length(x$names))
   }
 
   # Extracting relevant extra arguments
@@ -492,14 +500,13 @@ plot.incremental <- function(x,
   do.call(base::plot, args = c(
     list(
       x = NULL,
-      panel.first = c(
-        graphics::abline(h = hseq, col = "grey", lty = 3),
-        graphics::abline(v = vseq, col = "grey", lty = 3)
-      ),
-      xaxt = "n", yaxt = "n"
+      xaxt = "n",
+      yaxt = "n"
     ),
     tmp_extra_args
   ))
+  graphics::abline(h = hseq, col = "grey", lty = 3)
+  graphics::abline(v = vseq, col = "grey", lty = 3)
 
   # Extracting relevant extra arguments
   tmp_extra_args <- MatchingArguments(extra_args = extra_args, FUN = graphics::axis)
@@ -509,7 +516,7 @@ plot.incremental <- function(x,
   do.call(graphics::axis, args = c(
     list(
       side = 2,
-      at = grDevices::axisTicks(ylim, log = FALSE)
+      at = grDevices::axisTicks(usr = ylim, log = FALSE)
     ),
     tmp_extra_args
   ))
