@@ -37,18 +37,19 @@ Runs decision trees using implementation from \code{\link[rpart]{rpart}}.
 This function is not using stability.
 }
 \examples{
-# Data simulation
-set.seed(1)
-simul <- SimulateRegression(pk = 50)
+if (requireNamespace("rpart", quietly = TRUE)) {
+  # Data simulation
+  set.seed(1)
+  simul <- SimulateRegression(pk = 50)
 
-# Running the LASSO
-mycart <- CART(
-  xdata = simul$xdata,
-  ydata = simul$ydata,
-  family = "gaussian"
-)
-head(mycart$selected)
-
+  # Running the LASSO
+  mycart <- CART(
+    xdata = simul$xdata,
+    ydata = simul$ydata,
+    family = "gaussian"
+  )
+  head(mycart$selected)
+}
 }
 \references{
 \insertRef{CART}{sharp}
@@ -59,7 +60,7 @@ head(mycart$selected)
 Other underlying algorithm functions: 
 \code{\link{ClusteringAlgo}()},
 \code{\link{PenalisedGraphical}()},
-\code{\link{PenalisedRegression}()},
-\code{\link{PenalisedSEM}()}
+\code{\link{PenalisedOpenMx}()},
+\code{\link{PenalisedRegression}()}
 }
 \concept{underlying algorithm functions}

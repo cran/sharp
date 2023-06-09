@@ -1,5 +1,10 @@
 # sharp version 1.4.1
 
+* Removed functions depending on regsem (removed from CRAN)
+* Fixed the use of packages in Suggests in the examples
+
+# sharp version 1.4.1
+
 * Added package vignette
 * Used Ridge regression calibrated by cross validation instead of unpenalised regression in Refit(), ExplanatoryPerformance() and 
 Incremental()
