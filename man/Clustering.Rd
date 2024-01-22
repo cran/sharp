@@ -17,6 +17,7 @@ Clustering(
   scale = TRUE,
   linkage = "complete",
   row = TRUE,
+  optimisation = c("grid_search", "nloptr"),
   n_cores = 1,
   output_data = FALSE,
   verbose = TRUE,
@@ -36,7 +37,8 @@ not provided, it is set to \code{seq(1, tau*nrow(xdata))}.}
 \code{implementation=DBSCANClustering}.}
 
 \item{Lambda}{vector of penalty parameters for weighted distance calculation.
-Only used if \code{implementation=HierarchicalClustering},
+Only used for distance-based clustering, including for example
+\code{implementation=HierarchicalClustering},
 \code{implementation=PAMClustering}, or
 \code{implementation=DBSCANClustering}.}
 
@@ -71,8 +73,21 @@ Only used if \code{implementation=HierarchicalClustering}.}
 \item{row}{logical indicating if rows (if \code{row=TRUE}) or columns (if
 \code{row=FALSE}) contain the items to cluster.}
 
-\item{n_cores}{number of cores to use for parallel computing (see
-\code{\link[parallel]{mclapply}}). Only available on Unix systems.}
+\item{optimisation}{character string indicating the type of optimisation
+method to calibrate the regularisation parameter (only used if
+\code{Lambda} is not \code{NULL}). With \code{optimisation="grid_search"}
+(the default), all values in \code{Lambda} are visited.
+Alternatively, optimisation algorithms implemented in
+\code{\link[nloptr]{nloptr}} can be used with \code{optimisation="nloptr"}.
+By default, we use \code{"algorithm"="NLOPT_GN_DIRECT_L"},
+\code{"xtol_abs"=0.1}, \code{"ftol_abs"=0.1} and
+\code{"maxeval"} defined as \code{length(Lambda)}. These values can be
+changed by providing the argument \code{opts} (see
+\code{\link[nloptr]{nloptr}}).}
+
+\item{n_cores}{number of cores to use for parallel computing (see argument
+\code{workers} in \code{\link[future]{multisession}}). Using
+\code{n_cores>1} is only supported with \code{optimisation="grid_search"}.}
 
 \item{output_data}{logical indicating if the input datasets \code{xdata} and
 \code{ydata} should be included in the output.}
@@ -144,8 +159,8 @@ In consensus clustering, a clustering algorithm is applied on
   number generator is set to \code{seed}.
 
   For parallelisation, stability selection with different sets of parameters
-  can be run on \code{n_cores} cores. This relies on forking with
-  \code{\link[parallel]{mclapply}} (specific to Unix systems).
+  can be run on \code{n_cores} cores. Using \code{n_cores > 1} creates a
+  \code{\link[future]{multisession}}.
 }
 \examples{
 \donttest{

@@ -23,6 +23,7 @@ VariableSelection(
   Lambda_cardinal = 100,
   group_x = NULL,
   group_penalisation = FALSE,
+  optimisation = c("grid_search", "nloptr"),
   n_cores = 1,
   output_data = FALSE,
   verbose = TRUE,
@@ -116,8 +117,21 @@ be considered in the stability score. The use of
 \code{group_penalisation=TRUE} strictly applies to group (not sparse-group)
 penalisation.}
 
-\item{n_cores}{number of cores to use for parallel computing (see
-\code{\link[parallel]{mclapply}}). Only available on Unix systems.}
+\item{optimisation}{character string indicating the type of optimisation
+method. With \code{optimisation="grid_search"} (the default), all values in
+\code{Lambda} are visited. Alternatively, optimisation algorithms
+implemented in \code{\link[nloptr]{nloptr}} can be used with
+\code{optimisation="nloptr"}. By default, we use
+\code{"algorithm"="NLOPT_GN_DIRECT_L"}, \code{"xtol_abs"=0.1},
+\code{"ftol_abs"=0.1} and \code{"maxeval"=Lambda_cardinal}. These values
+can be changed by providing the argument \code{opts} (see
+\code{\link[nloptr]{nloptr}}). For stability selection using penalised
+regression, \code{optimisation="grid_search"} may be faster as it allows
+for warm start.}
+
+\item{n_cores}{number of cores to use for parallel computing (see argument
+\code{workers} in \code{\link[future]{multisession}}). Using
+\code{n_cores>1} is only supported with \code{optimisation="grid_search"}.}
 
 \item{output_data}{logical indicating if the input datasets \code{xdata} and
 \code{ydata} should be included in the output.}
@@ -237,8 +251,8 @@ In stability selection, a feature selection algorithm is fitted on
   number generator is set to \code{seed}.
 
   For parallelisation, stability selection with different sets of parameters
-  can be run on \code{n_cores} cores. This relies on forking with
-  \code{\link[parallel]{mclapply}} (specific to Unix systems). Alternatively,
+  can be run on \code{n_cores} cores. Using \code{n_cores > 1} creates a
+  \code{\link[future]{multisession}}. Alternatively,
   the function can be run manually with different \code{seed}s and all other
   parameters equal. The results can then be combined using
   \code{\link{Combine}}.
@@ -320,7 +334,7 @@ if (requireNamespace("elasticnet", quietly = TRUE)) {
   simul <- SimulateComponents(pk = c(5, 3, 4))
   stab <- VariableSelection(
     xdata = simul$data,
-    Lambda = 1:(ncol(simul$data) - 1),
+    Lambda = seq_len(ncol(simul$data) - 1),
     implementation = SparsePCA
   )
   CalibrationPlot(stab, xlab = "")
@@ -333,7 +347,7 @@ if (requireNamespace("sgPLS", quietly = TRUE)) {
   simul <- SimulateRegression(n = 100, pk = 50, family = "gaussian")
   stab <- VariableSelection(
     xdata = simul$xdata, ydata = simul$ydata,
-    Lambda = 1:(ncol(simul$xdata) - 1),
+    Lambda = seq_len(ncol(simul$xdata) - 1),
     implementation = SparsePLS, family = "gaussian"
   )
   CalibrationPlot(stab, xlab = "")
@@ -344,7 +358,7 @@ if (requireNamespace("sgPLS", quietly = TRUE)) {
 if (requireNamespace("sgPLS", quietly = TRUE)) {
   stab <- VariableSelection(
     xdata = simul$xdata, ydata = simul$ydata,
-    Lambda = 1:5,
+    Lambda = seq_len(5),
     group_x = c(5, 5, 10, 20, 10),
     group_penalisation = TRUE,
     implementation = GroupPLS, family = "gaussian"
@@ -387,7 +401,7 @@ if (requireNamespace("gglasso", quietly = TRUE)) {
   simul <- SimulateRegression(n = 200, pk = 20, family = "binomial")
   ManualGridGroupLasso <- function(xdata, ydata, family, group_x, ...) {
     # Defining the grouping
-    group <- do.call(c, lapply(1:length(group_x), FUN = function(i) {
+    group <- do.call(c, lapply(seq_len(length(group_x)), FUN = function(i) {
       rep(i, group_x[i])
     }))
 
@@ -408,7 +422,7 @@ if (requireNamespace("gglasso", quietly = TRUE)) {
   )
   GroupLasso <- function(xdata, ydata, Lambda, family, group_x, ...) {
     # Defining the grouping
-    group <- do.call(c, lapply(1:length(group_x), FUN = function(i) {
+    group <- do.call(c, lapply(seq_len(length(group_x)), FUN = function(i) {
       rep(i, group_x[i])
     }))
 

@@ -11,7 +11,8 @@
 #' @param xdata data matrix with observations as rows and variables as columns.
 #' @param tau subsample size.
 #' @param Lambda vector of penalty parameters for weighted distance calculation.
-#'   Only used if \code{implementation=HierarchicalClustering},
+#'   Only used for distance-based clustering, including for example
+#'   \code{implementation=HierarchicalClustering},
 #'   \code{implementation=PAMClustering}, or
 #'   \code{implementation=DBSCANClustering}.
 #' @param nc matrix of parameters controlling the number of clusters in the
@@ -36,6 +37,17 @@
 #'   Only used if \code{implementation=HierarchicalClustering}.
 #' @param row logical indicating if rows (if \code{row=TRUE}) or columns (if
 #'   \code{row=FALSE}) contain the items to cluster.
+#' @param optimisation character string indicating the type of optimisation
+#'   method to calibrate the regularisation parameter (only used if
+#'   \code{Lambda} is not \code{NULL}). With \code{optimisation="grid_search"}
+#'   (the default), all values in \code{Lambda} are visited.
+#'   Alternatively, optimisation algorithms implemented in
+#'   \code{\link[nloptr]{nloptr}} can be used with \code{optimisation="nloptr"}.
+#'   By default, we use \code{"algorithm"="NLOPT_GN_DIRECT_L"},
+#'   \code{"xtol_abs"=0.1}, \code{"ftol_abs"=0.1} and
+#'   \code{"maxeval"} defined as \code{length(Lambda)}. These values can be
+#'   changed by providing the argument \code{opts} (see
+#'   \code{\link[nloptr]{nloptr}}).
 #'
 #' @details In consensus clustering, a clustering algorithm is applied on
 #'   \code{K} subsamples of the observations with different numbers of clusters
@@ -63,8 +75,8 @@
 #'   number generator is set to \code{seed}.
 #'
 #'   For parallelisation, stability selection with different sets of parameters
-#'   can be run on \code{n_cores} cores. This relies on forking with
-#'   \code{\link[parallel]{mclapply}} (specific to Unix systems).
+#'   can be run on \code{n_cores} cores. Using \code{n_cores > 1} creates a
+#'   \code{\link[future]{multisession}}.
 #'
 #' @return An object of class \code{clustering}. A list with: \item{Sc}{a matrix
 #'   of the best stability scores for different (sets of) parameters controlling
@@ -143,6 +155,7 @@ Clustering <- function(xdata, nc = NULL, eps = NULL, Lambda = NULL,
                        scale = TRUE,
                        linkage = "complete",
                        row = TRUE,
+                       optimisation = c("grid_search", "nloptr"),
                        n_cores = 1, output_data = FALSE, verbose = TRUE, beep = NULL, ...) {
   # Visiting all possible numbers of clusters
   if (is.null(eps)) {
@@ -197,29 +210,95 @@ Clustering <- function(xdata, nc = NULL, eps = NULL, Lambda = NULL,
     verbose = verbose
   )
 
-  # Check if parallelisation is possible (forking)
-  if (.Platform$OS.type != "unix") {
-    if (n_cores > 1) {
-      warning("Invalid input for argument 'n_cores'. Parallelisation relies on forking, it is only available on Unix systems.")
-    }
-    n_cores <- 1
+  # Defining the type of optimisation
+  optimisation <- match.arg(optimisation)
+  if ((optimisation == "grid_search") & is.null(Lambda)) {
+    message("Using grid search to tune the number of clusters.")
   }
 
-  # Stability selection and score
-  mypar <- parallel::mclapply(X = 1:n_cores, FUN = function(k) {
-    return(SerialClustering(
-      xdata = xdata, Lambda = cbind(Lambda), nc = cbind(nc), eps = cbind(eps),
-      K = ceiling(K / n_cores), tau = tau, seed = as.numeric(paste0(seed, k)), n_cat = n_cat,
-      implementation = implementation, scale = scale, linkage = linkage, row = row,
-      output_data = output_data, verbose = verbose, ...
-    ))
-  }) # keep pk for correct number of blocks etc
+  # Storing extra arguments
+  extra_args <- list(...)
 
-  # Combining the outputs from parallel iterations
-  out <- mypar[[1]]
+  # Stability selection and score
   if (n_cores > 1) {
+    if (optimisation != "grid_search") {
+      message("Using grid search to allow for parallelisation.")
+    }
+    future::plan(future::multisession, workers = n_cores)
+    mypar <- future.apply::future_lapply(X = seq_len(n_cores), future.seed = TRUE, FUN = function(k) {
+      return(SerialClustering(
+        xdata = xdata, Lambda = cbind(Lambda), nc = cbind(nc), eps = cbind(eps),
+        K = ceiling(K / n_cores), tau = tau, seed = as.numeric(paste0(seed, k)), n_cat = n_cat,
+        implementation = implementation, scale = scale, linkage = linkage, row = row,
+        output_data = output_data, verbose = FALSE, ...
+      ))
+    }) # keep pk for correct number of blocks etc
+    future::plan(future::sequential)
+
+    # Combining the outputs from parallel iterations
+    out <- mypar[[1]]
     for (i in 2:length(mypar)) {
       out <- do.call(Combine, list(stability1 = out, stability2 = mypar[[i]], include_beta = TRUE))
+    }
+  } else {
+    if (optimisation == "grid_search") {
+      out <- SerialClustering(
+        xdata = xdata, Lambda = cbind(Lambda), nc = cbind(nc), eps = cbind(eps),
+        K = K, tau = tau, seed = seed, n_cat = n_cat,
+        implementation = implementation, scale = scale, linkage = linkage, row = row,
+        output_data = output_data, verbose = verbose, ...
+      )
+    } else {
+      # Creating the function to be minimised
+      eval_f <- function(x, env) {
+        # Running with a given lambda
+        out_nloptr <- SerialClustering(
+          xdata = xdata, Lambda = rbind(x), nc = cbind(nc), eps = cbind(eps),
+          K = K, tau = tau, seed = seed, n_cat = n_cat,
+          implementation = implementation, scale = scale, linkage = linkage, row = row,
+          output_data = output_data, verbose = FALSE, ...
+        )
+        if (any(!is.na(out_nloptr$Sc))) {
+          score <- max(out_nloptr$Sc, na.rm = TRUE)
+        } else {
+          score <- -Inf
+        }
+
+        # Storing the visited values
+        out <- get("out", envir = env)
+        out <- Concatenate(out_nloptr, out)
+        assign("out", out, envir = env)
+
+        return(-score)
+      }
+
+      # Defining the nloptr options
+      opts <- list(
+        "algorithm" = "NLOPT_GN_DIRECT_L",
+        "xtol_abs" = 0.1,
+        "ftol_abs" = 0.1,
+        "print_level" = 0,
+        "maxeval" = length(Lambda)
+      )
+      if ("opts" %in% names(extra_args)) {
+        for (opts_id in 1:length(extra_args[["opts"]])) {
+          opts[[names(extra_args[["opts"]])[opts_id]]] <- extra_args[["opts"]][[opts_id]]
+        }
+      }
+
+      # Initialising the values to store
+      nloptr_env <- new.env(parent = emptyenv())
+      assign("out", NULL, envir = nloptr_env)
+      nloptr_results <- nloptr::nloptr(
+        x0 = max(Lambda, na.rm = TRUE),
+        eval_f = eval_f,
+        opts = opts,
+        lb = min(Lambda, na.rm = TRUE),
+        ub = max(Lambda, na.rm = TRUE),
+        env = nloptr_env
+      )
+      out <- get("out", envir = nloptr_env)
+      out <- Concatenate(out, order_output = TRUE)
     }
   }
 
@@ -356,7 +435,7 @@ SerialClustering <- function(xdata, nc, eps, Lambda,
   if (verbose) {
     pb <- utils::txtProgressBar(style = 3)
   }
-  for (k in 1:K) {
+  for (k in seq_len(K)) {
     # Subsampling observations
     s <- Resample(
       data = xdata, family = NULL, tau = tau, resampling = resampling, ...
@@ -382,7 +461,7 @@ SerialClustering <- function(xdata, nc, eps, Lambda,
     }
 
     # Storing co-membership status
-    for (i in 1:dim(mybeta$comembership)[3]) {
+    for (i in seq_len(dim(mybeta$comembership)[3])) {
       if (row) {
         bigstab_obs[s, s, i] <- bigstab_obs[s, s, i] + mybeta$comembership[, , i]
       } else {
@@ -402,7 +481,7 @@ SerialClustering <- function(xdata, nc, eps, Lambda,
   nc_full <- nc_full / K
 
   # Computing the co-membership proportions
-  for (i in 1:dim(bigstab_obs)[3]) {
+  for (i in seq_len(dim(bigstab_obs)[3])) {
     if (row) {
       bigstab_obs[, , i] <- bigstab_obs[, , i] / sampled_pairs
     } else {
@@ -412,7 +491,7 @@ SerialClustering <- function(xdata, nc, eps, Lambda,
   bigstab_obs[is.nan(bigstab_obs)] <- NA
 
   # Computing the noise proportion
-  for (i in 1:nrow(bignoise)) {
+  for (i in seq_len(nrow(bignoise))) {
     if (row) {
       bignoise[i, ] <- bignoise[i, ] / diag(sampled_pairs)[i]
     } else {
@@ -427,7 +506,7 @@ SerialClustering <- function(xdata, nc, eps, Lambda,
   # Imputation of missing values (accounting for the fact that 2 items potentially never get picked together)
   if (any(is.na(bigstab_obs))) {
     warning("Missing values in consensus matrix. These have been set to zero by default. Consider increasing the number of subsamples 'K'.")
-    for (i in 1:dim(bigstab_obs)[3]) {
+    for (i in seq_len(dim(bigstab_obs)[3])) {
       if (any(is.na(bigstab_obs[, , i]))) {
         tmpmat <- bigstab_obs[, , i]
         tmpmat[which(is.na(tmpmat))] <- 0
@@ -438,7 +517,7 @@ SerialClustering <- function(xdata, nc, eps, Lambda,
 
   # Calibration of consensus clustering
   metrics2 <- matrix(NA, ncol = 1, nrow = dim(bigstab_obs)[3])
-  for (i in 1:dim(bigstab_obs)[3]) {
+  for (i in seq_len(dim(bigstab_obs)[3])) {
     # Clustering on the consensus matrix
     sh_clust <- stats::hclust(stats::as.dist(1 - bigstab_obs[, , i]), method = linkage)
 
@@ -466,8 +545,8 @@ SerialClustering <- function(xdata, nc, eps, Lambda,
     bigstab_var <- matrix(NA, nrow = nrow(Beta), ncol = ncol(Beta))
     colnames(bigstab_var) <- colnames(Beta)
     rownames(bigstab_var) <- rownames(Beta)
-    for (i in 1:nrow(Beta)) {
-      for (j in 1:ncol(Beta)) {
+    for (i in seq_len(nrow(Beta))) {
+      for (j in seq_len(ncol(Beta))) {
         bigstab_var[i, j] <- sum(Beta[i, j, ] != 0) / K
       }
     }

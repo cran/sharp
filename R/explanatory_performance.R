@@ -121,8 +121,8 @@
 #'   stab <- BiSelection(
 #'     xdata = xtrain, ydata = ytrain,
 #'     family = "gaussian", ncomp = 3,
-#'     LambdaX = 1:(ncol(xtrain) - 1),
-#'     LambdaY = 1:(ncol(ytrain) - 1),
+#'     LambdaX = seq_len(ncol(xtrain) - 1),
+#'     LambdaY = seq_len(ncol(ytrain) - 1),
 #'     implementation = SparsePLS
 #'   )
 #'   plot(stab)
@@ -438,7 +438,7 @@ Recalibrate <- Refit
 #' # Data simulation
 #' set.seed(1)
 #' simul <- SimulateRegression(
-#'   n = 1000, pk = 10,
+#'   n = 1000, pk = 20,
 #'   family = "binomial", ev_xy = 0.8
 #' )
 #'
@@ -574,7 +574,7 @@ ExplanatoryPerformance <- function(xdata, ydata, new_xdata = NULL, new_ydata = N
 
   # Running the subsampling iterations
   iter <- 0
-  for (k in 1:K) {
+  for (k in seq_len(K)) {
     iter <- iter + 1
 
     if (is.null(new_xdata)) {
@@ -603,7 +603,7 @@ ExplanatoryPerformance <- function(xdata, ydata, new_xdata = NULL, new_ydata = N
           tmpbeta <- as.vector(stats::coef(refitted))
           Beta <- matrix(NA, nrow = K, ncol = length(tmpbeta))
           colnames(Beta) <- names(tmpbeta)
-          rownames(Beta) <- paste0("iter", 1:K)
+          rownames(Beta) <- paste0("iter", seq_len(K))
         }
       }
 
@@ -612,7 +612,8 @@ ExplanatoryPerformance <- function(xdata, ydata, new_xdata = NULL, new_ydata = N
         Beta[iter, ] <- as.vector(stats::coef(refitted))
       }
 
-      if (ncol(xtrain) == 1) {
+      if (inherits(refitted, c("glm", "lm"))) {
+        # if (ncol(xtrain) == 1) {
         # Predictions from logistic models
         if (tolower(metric) == "roc") {
           suppressWarnings({
@@ -627,7 +628,7 @@ ExplanatoryPerformance <- function(xdata, ydata, new_xdata = NULL, new_ydata = N
       } else {
         ids_predictors <- rownames(stats::coef(refitted))
         ids_predictors <- ids_predictors[which(ids_predictors %in% colnames(xtest))]
-        predicted <- stats::predict(refitted, newx = as.matrix(xtest[, ids_predictors]))
+        predicted <- stats::predict(refitted, newx = as.matrix(xtest[, ids_predictors, drop = FALSE]))
       }
     } else {
       if (is.null(prediction)) {
@@ -758,7 +759,7 @@ ExplanatoryPerformance <- function(xdata, ydata, new_xdata = NULL, new_ydata = N
 #' # Data simulation
 #' set.seed(1)
 #' simul <- SimulateRegression(
-#'   n = 1000, pk = 10,
+#'   n = 1000, pk = 20,
 #'   family = "binomial", ev_xy = 0.8
 #' )
 #'
@@ -828,6 +829,11 @@ Incremental <- function(xdata, ydata, new_xdata = NULL, new_ydata = NULL,
     }
   }
 
+  # Object preparation, error and warning messages
+  CheckDataRegression(
+    xdata = xdata, ydata = ydata, family = family, verbose = verbose
+  )
+
   # Defining the number of predictors
   if (is.null(n_predictors)) {
     if (!is.null(stability)) {
@@ -856,7 +862,7 @@ Incremental <- function(xdata, ydata, new_xdata = NULL, new_ydata = NULL,
 
     # Including variables by order of decreasing selection proportions
     myorder <- names(SelectionProportions(stability))[sort.list(SelectionProportions(stability), decreasing = TRUE)]
-    myorder <- myorder[1:n_predictors]
+    myorder <- myorder[seq_len(n_predictors)]
 
     # Including the variables that are forced in the model first by order of columns in the data
     myorder <- c(unpenalised_vars, myorder)
@@ -878,9 +884,9 @@ Incremental <- function(xdata, ydata, new_xdata = NULL, new_ydata = NULL,
     pb <- utils::txtProgressBar(style = 3)
   }
 
-  for (k in 1:length(myorder)) {
+  for (k in seq_len(length(myorder))) {
     perf <- ExplanatoryPerformance(
-      xdata = xdata[, myorder[1:k], drop = FALSE],
+      xdata = xdata[, myorder[seq_len(k)], drop = FALSE],
       ydata = ydata,
       new_xdata = new_xdata,
       new_ydata = new_ydata,
@@ -937,7 +943,7 @@ Incremental <- function(xdata, ydata, new_xdata = NULL, new_ydata = NULL,
   if (!is.null(stability)) {
     mystable <- rep(0, length(myorder))
     names(mystable) <- myorder
-    mystable[1:max(which(myorder %in% names(which(SelectedVariables(stability) == 1))))] <- 1
+    mystable[seq_len(max(which(myorder %in% names(which(SelectedVariables(stability) == 1)))))] <- 1
     out <- c(out, stable = list(mystable))
   }
 

@@ -26,7 +26,7 @@ CheckParamRegression <- function(Lambda = NULL, pi_list = seq(0.6, 0.9, by = 0.0
     if (is.matrix(Lambda)) {
       Lambda_copy <- Lambda
       Lambda <- NULL
-      for (k in 1:ncol(Lambda_copy)) {
+      for (k in seq_len(ncol(Lambda_copy))) {
         Lambda <- cbind(Lambda, as.numeric(Lambda_copy[, k]))
       }
     } else {
@@ -169,7 +169,7 @@ CheckParamRegression <- function(Lambda = NULL, pi_list = seq(0.6, 0.9, by = 0.0
   }
 
   # Assigning checked values to the parent function
-  for (i in 1:length(myargs)) {
+  for (i in seq_len(length(myargs))) {
     if (!is.null(get(myargs[i]))) {
       assign(myargs[i], get(myargs[i]), envir = parent.frame(n = 1))
     }
@@ -194,6 +194,11 @@ CheckDataRegression <- function(xdata, ydata = NULL,
     "xdata", "ydata", "family"
   )
 
+  # Turning factors into dummy variables if needed
+  if (is.list(xdata)) {
+    xdata <- stats::model.matrix(~., data = xdata)[, -1]
+  }
+
   # Checking the inputs (xdata and ydata)
   xdata <- as.matrix(xdata)
   if (!is.null(ydata)) {
@@ -210,7 +215,7 @@ CheckDataRegression <- function(xdata, ydata = NULL,
 
   # Preparing xdata
   if (is.null(colnames(xdata))) {
-    colnames(xdata) <- paste0("var", 1:ncol(xdata))
+    colnames(xdata) <- paste0("var", seq_len(ncol(xdata)))
   }
 
   # Preparing ydata
@@ -219,16 +224,12 @@ CheckDataRegression <- function(xdata, ydata = NULL,
     if (is.data.frame(ydata)) {
       ydata <- as.matrix(ydata)
     }
-    # Turning matrix with one column into vector
-    if (is.matrix(ydata)) {
-      if (ncol(ydata) == 1) {
-        ydata <- as.vector(ydata)
-      }
-    }
-    # Turning vector into factor
+
+    # Turning vector into matrix
     if (is.vector(ydata)) {
-      ydata <- as.factor(ydata)
+      ydata <- matrix(ydata, ncol = 1)
     }
+
     # Defining reference category and final data type
     if (is.factor(ydata)) {
       if ((family %in% c("binomial", "multinomial")) & verbose) {
@@ -254,7 +255,7 @@ CheckDataRegression <- function(xdata, ydata = NULL,
 
   # Naming rows of xdata and ydata
   if (is.null(rownames(xdata)) & is.null(rownames(ydata))) {
-    rownames(xdata) <- paste0("obs", 1:nrow(xdata))
+    rownames(xdata) <- paste0("obs", seq_len(nrow(xdata)))
     rownames(ydata) <- rownames(xdata)
   } else {
     if ((is.null(rownames(xdata))) & (!is.null(rownames(ydata)))) {
@@ -297,7 +298,7 @@ CheckDataRegression <- function(xdata, ydata = NULL,
   }
 
   # Assigning checked values to the parent function
-  for (i in 1:length(myargs)) {
+  for (i in seq_len(length(myargs))) {
     if (!is.null(get(myargs[i]))) {
       assign(myargs[i], get(myargs[i]), envir = parent.frame(n = 1))
     }
@@ -479,7 +480,7 @@ CheckInputGraphical <- function(xdata, pk = NULL, Lambda = NULL, lambda_other_bl
   # Creating matrix with block indices
   bigblocks <- BlockMatrix(pk)
   nblocks <- length(pk) * (length(pk) + 1) / 2
-  bigblocks_vect <- factor(bigblocks[upper.tri(bigblocks)], levels = 1:nblocks)
+  bigblocks_vect <- factor(bigblocks[upper.tri(bigblocks)], levels = seq_len(nblocks))
   N_blocks <- unname(table(bigblocks_vect))
   blocks <- levels(bigblocks_vect)
   names(N_blocks) <- blocks
@@ -520,7 +521,7 @@ CheckInputGraphical <- function(xdata, pk = NULL, Lambda = NULL, lambda_other_bl
       } else {
         Lambda_copy <- Lambda
         Lambda <- NULL
-        for (k in 1:ncol(Lambda_copy)) {
+        for (k in seq_len(ncol(Lambda_copy))) {
           Lambda <- cbind(Lambda, as.numeric(Lambda_copy[, k]))
         }
       }
@@ -570,13 +571,13 @@ CheckInputGraphical <- function(xdata, pk = NULL, Lambda = NULL, lambda_other_bl
   }
 
   # Assigning checked values to the parent function
-  for (i in 1:length(myargs)) {
+  for (i in seq_len(length(myargs))) {
     assign(myargs[i], get(myargs[i]), envir = parent.frame(n = 1))
   }
 
   # Assigning extra objects to the parent function
   myextra <- c("bigblocks", "bigblocks_vect", "blocks", "N_blocks", "nblocks", "PFER_thr_blocks", "FDP_thr_blocks")
-  for (i in 1:length(myextra)) {
+  for (i in seq_len(length(myextra))) {
     assign(myextra[i], get(myextra[i]), envir = parent.frame(n = 1))
   }
 }
@@ -691,7 +692,7 @@ CheckInputClustering <- function(xdata, Lambda = NULL,
       } else {
         Lambda_copy <- Lambda
         Lambda <- NULL
-        for (k in 1:ncol(Lambda_copy)) {
+        for (k in seq_len(ncol(Lambda_copy))) {
           Lambda <- cbind(Lambda, as.numeric(Lambda_copy[, k]))
         }
       }
@@ -709,7 +710,7 @@ CheckInputClustering <- function(xdata, Lambda = NULL,
   }
 
   # Assigning checked values to the parent function
-  for (i in 1:length(myargs)) {
+  for (i in seq_len(length(myargs))) {
     assign(myargs[i], get(myargs[i]), envir = parent.frame(n = 1))
   }
 }
