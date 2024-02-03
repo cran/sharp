@@ -1,8 +1,8 @@
 Package: sharp
 Type: Package
 Title: Stability-enHanced Approaches using Resampling Procedures
-Version: 1.4.5
-Date: 2024-01-21
+Version: 1.4.6
+Date: 2024-02-03
 Author: Barbara Bodinier [aut, cre]
 Maintainer: Barbara Bodinier <barbara.bodinier@gmail.com>
 URL: https://github.com/barbarabodinier/sharp
@@ -11,7 +11,7 @@ Description: In stability selection (N Meinshausen, P Bühlmann (2010) <doi:10.1
 License: GPL (>= 3)
 Language: en-GB
 Encoding: UTF-8
-RoxygenNote: 7.3.0
+RoxygenNote: 7.3.1
 Depends: fake (>= 1.4.0), R (>= 3.5)
 Imports: abind, beepr, future, future.apply, glassoFast (>= 1.0.0),
         glmnet, grDevices, igraph, mclust, nloptr, plotrix, Rdpack,
@@ -24,6 +24,6 @@ Additional_repositories: https://barbarabodinier.github.io/drat
 Config/testthat/edition: 3
 RdMacros: Rdpack
 NeedsCompilation: no
-Packaged: 2024-01-22 19:57:19 UTC; barbara
+Packaged: 2024-02-03 16:28:15 UTC; barbara
 Repository: CRAN
-Date/Publication: 2024-01-22 20:40:02 UTC
+Date/Publication: 2024-02-03 17:30:02 UTC
