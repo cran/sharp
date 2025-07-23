@@ -1,8 +1,8 @@
 Package: sharp
 Type: Package
 Title: Stability-enHanced Approaches using Resampling Procedures
-Version: 1.4.7
-Date: 2025-03-24
+Version: 1.4.8
+Date: 2025-07-23
 Authors@R: person(given = "Barbara",
   family = "Bodinier",
   role = c("aut", "cre"),
@@ -27,7 +27,7 @@ Additional_repositories: https://barbarabodinier.github.io/drat
 Config/testthat/edition: 3
 RdMacros: Rdpack
 NeedsCompilation: no
-Packaged: 2025-04-10 22:17:02 UTC; barbara
+Packaged: 2025-07-23 21:10:57 UTC; barbara
 Author: Barbara Bodinier [aut, cre]
 Repository: CRAN
-Date/Publication: 2025-04-11 08:20:02 UTC
+Date/Publication: 2025-07-23 21:30:02 UTC
